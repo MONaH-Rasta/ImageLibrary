@@ -14,7 +14,7 @@ using UnityEngine.Networking;
 
 namespace Oxide.Plugins
 {
-    [Info("Image Library", "Absolut & K1lly0u", "2.0.57")]
+    [Info("Image Library", "Absolut & K1lly0u", "2.0.58")]
     [Description("Plugin API for downloading and managing images")]
     class ImageLibrary : RustPlugin
     {
@@ -1122,18 +1122,23 @@ namespace Oxide.Plugins
 
                 if (www?.downloadHandler?.data != null)
                 {
-                    if (www.downloadHandler.data.Length > 3145728)
-                        Debug.LogError($"[ImageLibrary] Failed to store image data for image : {info.name} ({info.url})\nIt is larger then the allowed transferable size of 3145728 bytes");
-                    else
+                    Texture2D texture = new Texture2D(2, 2);
+                    texture.LoadImage(www.downloadHandler.data);
+                    if (texture != null)
                     {
-                        Texture2D texture = new Texture2D(2, 2);
-                        texture.LoadImage(www.downloadHandler.data);
-                        if (texture != null)
+                        bool shouldStore = true;
+                        byte[] bytes = texture.EncodeToPNG();
+
+                        if (bytes.Length > 3145728)
                         {
-                            byte[] bytes = texture.EncodeToPNG();
-                            DestroyImmediate(texture);
-                            StoreByteArray(bytes, info.name);
+                            Debug.Log($"[ImageLibrary] Failed to store image data for image : {info.name} for equest {request}\nURL: {info.url}\n{bytes.Length} bytes is larger then the allowed transferable size of 3145728 bytes");
+                            shouldStore = false;
                         }
+
+                        DestroyImmediate(texture);
+
+                        if (shouldStore)
+                            StoreByteArray(bytes, info.name);
                     }
                 }
                 www.Dispose();
