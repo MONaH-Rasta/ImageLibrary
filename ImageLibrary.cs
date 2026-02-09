@@ -14,7 +14,7 @@ using UnityEngine.Networking;
 
 namespace Oxide.Plugins
 {
-    [Info("Image Library", "Absolut & K1lly0u", "2.0.54")]
+    [Info("Image Library", "Absolut & K1lly0u", "2.0.55")]
     [Description("Plugin API for downloading and managing images")]
     class ImageLibrary : RustPlugin
     {
@@ -188,39 +188,52 @@ namespace Oxide.Plugins
         private void RestoreLoadedImages()
         {
             orderPending = true;
-            int failed = 0;
-
-            Dictionary<string, byte[]> oldFiles = new Dictionary<string, byte[]>();
-
-            for (int i = imageIdentifiers.imageIds.Count - 1; i >= 0; i--)
-            {
-                var image = imageIdentifiers.imageIds.ElementAt(i);
-
-                uint imageId;
-                if (!uint.TryParse(image.Value, out imageId))
-                    continue;
-
-                byte[] bytes = FileStorage.server.Get(imageId, FileStorage.Type.png, imageIdentifiers.lastCEID);
-                if (bytes != null)
-                    oldFiles.Add(image.Key, bytes);
-                else
-                {
-                    failed++;
-                    imageIdentifiers.imageIds.Remove(image.Key);
-                }
-            }
 
             Facepunch.Sqlite.Database db = new Facepunch.Sqlite.Database();
-            try
+            db.Open(string.Concat(ConVar.Server.rootFolder, "/", "sv.files.", Rust.Protocol.save - 1, ".db"));
+            if (db.TableExists("data"))
             {
-                db.Open($"{ConVar.Server.rootFolder}/sv.files.0.db");
-                db.Execute("DELETE FROM data WHERE entid = ?", imageIdentifiers.lastCEID);
-                db.Close();
-            }
-            catch { }
+                Dictionary<string, byte[]> oldFiles = new Dictionary<string, byte[]>();
+                int failed = 0;
 
-            loadOrders.Enqueue(new LoadOrder("Image restoration from previous database", oldFiles));
-            PrintWarning($"{imageIdentifiers.imageIds.Count - failed} images queued for restoration, {failed} images failed");
+                for (int i = imageIdentifiers.imageIds.Count - 1; i >= 0; i--)
+                {
+                    KeyValuePair<string, string> image = imageIdentifiers.imageIds.ElementAt(i);
+
+                    uint imageId;
+                    if (!uint.TryParse(image.Value, out imageId))
+                        continue;
+
+                    byte[] bytes = db.QueryBlob("SELECT data FROM data WHERE crc = ? AND filetype = ? AND entid = ? LIMIT 1", new object[] { (int)imageId, 0, imageIdentifiers.lastCEID });
+                    if (bytes != null)
+                        oldFiles.Add(image.Key, bytes);
+                    else
+                    {
+                        failed++;
+                        imageIdentifiers.imageIds.Remove(image.Key);
+                    }
+                }
+
+                if (oldFiles.Count > 0)
+                {
+                    loadOrders.Enqueue(new LoadOrder("Image restoration from previous database", oldFiles));
+                    PrintWarning($"{imageIdentifiers.imageIds.Count - failed} images queued for restoration from previous image db, {failed} images failed");
+                }
+
+            }
+            db.Close();            
+
+            //Facepunch.Sqlite.Database db = new Facepunch.Sqlite.Database();
+            //try
+            //{
+            //    db.Open($"{ConVar.Server.rootFolder}/sv.files.0.db");
+            //    db.Execute("DELETE FROM data WHERE entid = ?", imageIdentifiers.lastCEID);
+            //    db.Close();
+            //}
+            //catch { }
+
+            //loadOrders.Enqueue(new LoadOrder("Image restoration from previous database", oldFiles));
+            //PrintWarning($"{imageIdentifiers.imageIds.Count - failed} images queued for restoration, {failed} images failed");
             imageIdentifiers.lastCEID = CommunityEntity.ServerInstance.net.ID;
             SaveData();
 
@@ -238,7 +251,8 @@ namespace Oxide.Plugins
             {
                 string identifier = $"{itemDefinition.shortname}_0";
                 if (!imageUrls.URLs.ContainsKey(identifier))
-                    imageUrls.URLs.Add(identifier, $"https://www.rustedit.io/images/imagelibrary/{itemDefinition.shortname}.png");
+                    imageUrls.URLs.Add(identifier, $"{configData.ImageURL}{itemDefinition.shortname}.png");
+                else imageUrls.URLs[identifier] = $"{configData.ImageURL}{itemDefinition.shortname}.png";
             }
             SaveUrls();
         }
@@ -1108,15 +1122,15 @@ namespace Oxide.Plugins
             [JsonProperty(PropertyName = "Steam API key (get one here https://steamcommunity.com/dev/apikey)")]
             public string SteamAPIKey { get; set; }
 
-            //[JsonProperty(PropertyName = "Workshop - Download workshop image information")]
-            //public bool WorkshopImages { get; set; }
+            [JsonProperty(PropertyName = "URL to web folder containing all item icons")]
+            public string ImageURL { get; set; }
 
             [JsonProperty(PropertyName = "Progress - Show download progress in console")]
             public bool ShowProgress { get; set; }
 
             [JsonProperty(PropertyName = "Progress - Time between update notifications")]
             public int UpdateInterval { get; set; }
-
+            
             [JsonProperty(PropertyName = "User Images - Manually define images to be loaded")]
             public Dictionary<string, string> UserImages { get; set; }
 
@@ -1144,6 +1158,7 @@ namespace Oxide.Plugins
                 SteamAPIKey = string.Empty,
                 StoreAvatars = false,
                 UpdateInterval = 20,
+                ImageURL = "https://www.rustedit.io/images/imagelibrary/",
                 UserImages = new Dictionary<string, string>(),
                 Version = Version
             };
@@ -1162,6 +1177,9 @@ namespace Oxide.Plugins
 
             if (configData.Version < new VersionNumber(2, 0, 53))
                 configData.StoreAvatars = false;
+
+            if (configData.Version < new VersionNumber(2, 0, 55))
+                configData.ImageURL = baseConfig.ImageURL;
 
             configData.Version = Version;
             PrintWarning("Config update completed!");
