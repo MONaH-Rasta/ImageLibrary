@@ -14,7 +14,7 @@ using UnityEngine.Networking;
 
 namespace Oxide.Plugins
 {
-    [Info("Image Library", "Absolut & K1lly0u", "2.0.55")]
+    [Info("Image Library", "Absolut & K1lly0u", "2.0.56")]
     [Description("Plugin API for downloading and managing images")]
     class ImageLibrary : RustPlugin
     {
@@ -189,40 +189,46 @@ namespace Oxide.Plugins
         {
             orderPending = true;
 
-            Facepunch.Sqlite.Database db = new Facepunch.Sqlite.Database();
-            db.Open(string.Concat(ConVar.Server.rootFolder, "/", "sv.files.", Rust.Protocol.save - 1, ".db"));
-            if (db.TableExists("data"))
+            try
             {
-                Dictionary<string, byte[]> oldFiles = new Dictionary<string, byte[]>();
-                int failed = 0;
-
-                for (int i = imageIdentifiers.imageIds.Count - 1; i >= 0; i--)
+                Facepunch.Sqlite.Database db = new Facepunch.Sqlite.Database();
+                db.Open(string.Concat(ConVar.Server.rootFolder, "/", "sv.files.", Rust.Protocol.save - 1, ".db"));                
+                if (db.TableExists("data"))
                 {
-                    KeyValuePair<string, string> image = imageIdentifiers.imageIds.ElementAt(i);
+                    Dictionary<string, byte[]> oldFiles = new Dictionary<string, byte[]>();
+                    int failed = 0;
 
-                    uint imageId;
-                    if (!uint.TryParse(image.Value, out imageId))
-                        continue;
-
-                    byte[] bytes = db.QueryBlob("SELECT data FROM data WHERE crc = ? AND filetype = ? AND entid = ? LIMIT 1", new object[] { (int)imageId, 0, imageIdentifiers.lastCEID });
-                    if (bytes != null)
-                        oldFiles.Add(image.Key, bytes);
-                    else
+                    for (int i = imageIdentifiers.imageIds.Count - 1; i >= 0; i--)
                     {
-                        failed++;
-                        imageIdentifiers.imageIds.Remove(image.Key);
+                        KeyValuePair<string, string> image = imageIdentifiers.imageIds.ElementAt(i);
+
+                        uint imageId;
+                        if (!uint.TryParse(image.Value, out imageId))
+                            continue;
+
+                        byte[] bytes = db.QueryBlob("SELECT data FROM data WHERE crc = ? AND filetype = ? AND entid = ? LIMIT 1", new object[] { (int)imageId, 0, imageIdentifiers.lastCEID });
+                        if (bytes != null)
+                            oldFiles.Add(image.Key, bytes);
+                        else
+                        {
+                            failed++;
+                            imageIdentifiers.imageIds.Remove(image.Key);
+                        }
                     }
-                }
 
-                if (oldFiles.Count > 0)
-                {
-                    loadOrders.Enqueue(new LoadOrder("Image restoration from previous database", oldFiles));
-                    PrintWarning($"{imageIdentifiers.imageIds.Count - failed} images queued for restoration from previous image db, {failed} images failed");
-                }
+                    if (oldFiles.Count > 0)
+                    {
+                        loadOrders.Enqueue(new LoadOrder("Image restoration from previous database", oldFiles));
+                        PrintWarning($"{imageIdentifiers.imageIds.Count - failed} images queued for restoration from previous image db, {failed} images failed");
+                    }
 
+                }
+                db.Close();
             }
-            db.Close();            
-
+            catch
+            {
+                PrintError("Failed to open previous image database. Unable to clone previous image data");
+            }
             //Facepunch.Sqlite.Database db = new Facepunch.Sqlite.Database();
             //try
             //{
