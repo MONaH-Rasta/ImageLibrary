@@ -9,13 +9,12 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.RegularExpressions;
 using UnityEngine;
 using UnityEngine.Networking;
 
 namespace Oxide.Plugins
 {
-    [Info("Image Library", "Absolut & K1lly0u", "2.0.52")]
+    [Info("Image Library", "Absolut & K1lly0u", "2.0.53")]
     [Description("Plugin API for downloading and managing images")]
     class ImageLibrary : RustPlugin
     {
@@ -71,11 +70,11 @@ namespace Oxide.Plugins
 
             CheckForRefresh();
 
-            foreach (var player in BasePlayer.activePlayerList)
-                OnPlayerInit(player);
+            foreach (BasePlayer player in BasePlayer.activePlayerList)
+                OnPlayerConnected(player);
         }
 
-        private void OnPlayerInit(BasePlayer player) => GetPlayerAvatar(player?.UserIDString);
+        private void OnPlayerConnected(BasePlayer player) => GetPlayerAvatar(player?.UserIDString);
 
         private void Unload()
         {
@@ -322,7 +321,7 @@ namespace Oxide.Plugins
             if (imageIdentifiers.imageIds.TryGetValue(identifier, out value))
                 return value;
             else
-            {
+            {                
                 if (imageUrls.URLs.TryGetValue(identifier, out value))
                 {
                     AddImage(value, imageName, imageId);
@@ -1125,7 +1124,7 @@ namespace Oxide.Plugins
             {
                 ShowProgress = true,
                 SteamAPIKey = string.Empty,
-                StoreAvatars = true,
+                StoreAvatars = false,
                 UpdateInterval = 20,
                 UserImages = new Dictionary<string, string>(),
                 Version = Version
@@ -1142,6 +1141,9 @@ namespace Oxide.Plugins
 
             if (configData.Version < new VersionNumber(2, 0, 47))
                 configData = baseConfig;
+
+            if (configData.Version < new VersionNumber(2, 0, 53))
+                configData.StoreAvatars = false;
 
             configData.Version = Version;
             PrintWarning("Config update completed!");
