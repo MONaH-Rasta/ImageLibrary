@@ -15,7 +15,7 @@ using UnityEngine.Networking;
 
 namespace Oxide.Plugins
 {
-    [Info("Image Library", "Absolut & K1lly0u", "2.0.51")]
+    [Info("Image Library", "Absolut & K1lly0u", "2.0.52")]
     [Description("Plugin API for downloading and managing images")]
     class ImageLibrary : RustPlugin
     {
@@ -35,11 +35,10 @@ namespace Oxide.Plugins
         private bool orderPending;
         private bool isInitialized;
 
-        private readonly Regex avatarFilter = new Regex(@"<avatarFull><!\[CDATA\[(.*)\]\]></avatarFull>");
-
         private JsonSerializerSettings errorHandling = new JsonSerializerSettings { Error = (se, ev) => { ev.ErrorContext.Handled = true; } };
 
         private const string STEAM_API_URL = "https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/";
+        private const string STEAM_AVATAR_URL = "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key={0}&steamids={1}";
 
         private string[] itemShortNames;
 
@@ -58,7 +57,7 @@ namespace Oxide.Plugins
         }
 
         private void OnServerInitialized()
-        {           
+        {
             itemShortNames = ItemManager.itemList.Select(x => x.shortname).ToArray();
 
             foreach (ItemDefinition item in ItemManager.itemList)
@@ -88,7 +87,7 @@ namespace Oxide.Plugins
         #endregion Oxide Hooks
 
         #region Functions
-        
+
         private IEnumerator ProcessLoadOrders()
         {
             yield return new WaitWhile(() => !isInitialized);
@@ -123,16 +122,24 @@ namespace Oxide.Plugins
 
         private void GetPlayerAvatar(string userId)
         {
-            if (!configData.StoreAvatars || string.IsNullOrEmpty(userId) || HasImage(userId, 0))
+            if (!configData.StoreAvatars || string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(configData.SteamAPIKey) || HasImage(userId, 0))
                 return;
 
-            webrequest.Enqueue($"http://steamcommunity.com/profiles/{userId}?xml=1", null, (code, response) =>
+            webrequest.Enqueue(string.Format(STEAM_AVATAR_URL, configData.SteamAPIKey, userId), null, (code, response) =>
             {
                 if (response != null && code == 200)
                 {
-                    string avatar = avatarFilter.Match(response).Groups[1].ToString();
-                    if (!string.IsNullOrEmpty(avatar))
-                        AddImage(avatar, userId, 0);
+                    try
+                    {
+                        AvatarRoot rootObject = JsonConvert.DeserializeObject<AvatarRoot>(response, errorHandling);
+                        if (rootObject?.response?.players?.Length > 0)
+                        {
+                            string avatarUrl = rootObject.response.players[0].avatarmedium;
+                            if (!string.IsNullOrEmpty(avatarUrl))                            
+                                AddImage(avatarUrl, userId, 0);                               
+                        }                        
+                    }
+                    catch { }
                 }
             }, this);
         }
@@ -221,14 +228,14 @@ namespace Oxide.Plugins
             orderPending = false;
             ServerMgr.Instance.StartCoroutine(ProcessLoadOrders());
         }
-       
+
         #endregion Functions
 
         #region Workshop Names and Image URLs
 
         private void AddDefaultUrls()
         {
-            foreach(ItemDefinition itemDefinition in ItemManager.itemList)
+            foreach (ItemDefinition itemDefinition in ItemManager.itemList)
             {
                 string identifier = $"{itemDefinition.shortname}_0";
                 if (!imageUrls.URLs.ContainsKey(identifier))
@@ -270,9 +277,11 @@ namespace Oxide.Plugins
             {"lr300.item", "rifle.lr300" },
             {"burlap.gloves", "burlap.gloves.new"},
             {"leather.gloves", "burlap.gloves"},
-            {"python", "pistol.python" }
+            {"python", "pistol.python" },
+            {"m39", "rifle.m39"},
+            {"woodendoubledoor", "door.double.hinged.wood"}
         };
-       
+
         #endregion Workshop Names and Image URLs
 
         #region API
@@ -318,7 +327,7 @@ namespace Oxide.Plugins
                 {
                     AddImage(value, imageName, imageId);
                     return imageIdentifiers.imageIds["LOADING_0"];
-                }               
+                }
             }
 
             if (returnUrl && !string.IsNullOrEmpty(value))
@@ -439,7 +448,7 @@ namespace Oxide.Plugins
                     callback.Invoke();
             }
         }
-        
+
         [HookMethod("LoadImageList")]
         public void LoadImageList(string title, List<KeyValuePair<string, ulong>> imageList, Action callback = null)
         {
@@ -539,7 +548,7 @@ namespace Oxide.Plugins
         }
 
         private string BuildDetailsString(List<ulong> list)
-        {            
+        {
             string details = string.Format("?key={0}&itemcount={1}", configData.SteamAPIKey, list.Count);
 
             for (int i = 0; i < list.Count; i++)
@@ -685,7 +694,7 @@ namespace Oxide.Plugins
                 rangeMax = workshopDownloads.Count;
 
             List<ulong> requestedSkins = workshopDownloads.GetRange(rangeMin, rangeMax - rangeMin).Select(x => x.Value).ToList();
-            
+
             int totalPages = Mathf.CeilToInt((float)workshopDownloads.Count / 100f) - 1;
 
             string details = BuildDetailsString(requestedSkins);
@@ -698,7 +707,7 @@ namespace Oxide.Plugins
                     if (query == null || query.response == null || query.response.publishedfiledetails.Length == 0)
                     {
                         if (code != 200)
-                            PrintError($"There was a error querying Steam for workshop item data : Code ({code})");                                                
+                            PrintError($"There was a error querying Steam for workshop item data : Code ({code})");
 
                         if (page < totalPages)
                             QueueWorkshopDownload(title, newLoadOrderURL, workshopDownloads, page + 1, callback);
@@ -765,10 +774,10 @@ namespace Oxide.Plugins
                             {
                                 Puts($"{requestedSkins.Count} workshop skin ID's for image batch ({title}) are invalid! They may have been removed from the workshop\nIDs: {requestedSkins.ToSentence()}");
                             }
-                        }                        
+                        }
 
                         if (page < totalPages)
-                            QueueWorkshopDownload(title, newLoadOrderURL, workshopDownloads, page + 1, callback);   
+                            QueueWorkshopDownload(title, newLoadOrderURL, workshopDownloads, page + 1, callback);
                         else
                         {
                             if (newLoadOrderURL.Count > 0)
@@ -784,8 +793,8 @@ namespace Oxide.Plugins
                             }
                         }
                     }
-                }, 
-                this, 
+                },
+                this,
                 Core.Libraries.RequestMethod.POST);
             }
             catch { }
@@ -902,7 +911,7 @@ namespace Oxide.Plugins
 
                 if (pendingAnswers.Contains(userId))
                 {
-                    SendReply(arg, "ImageLibrary data wipe aborted!"); 
+                    SendReply(arg, "ImageLibrary data wipe aborted!");
                     pendingAnswers.Remove(userId);
                 }
             }
@@ -921,7 +930,7 @@ namespace Oxide.Plugins
             public Dictionary<string, byte[]> imageData;
 
             public Action callback;
-           
+
             public LoadOrder(string loadName, Dictionary<string, string> imageList, bool loadSilent = false, Action callback = null)
             {
                 this.loadName = loadName;
@@ -1137,7 +1146,7 @@ namespace Oxide.Plugins
             configData.Version = Version;
             PrintWarning("Config update completed!");
         }
-        
+
         #endregion Config
 
         #region Data Management
@@ -1177,7 +1186,7 @@ namespace Oxide.Plugins
             if (imageIdentifiers == null)
                 imageIdentifiers = new ImageIdentifiers();
             if (imageUrls == null)
-                imageUrls = new ImageURLs();            
+                imageUrls = new ImageURLs();
         }
 
         private class ImageIdentifiers
@@ -1196,6 +1205,34 @@ namespace Oxide.Plugins
             public Hash<string, string> URLs = new Hash<string, string>();
         }
 
+
+        public class AvatarRoot
+        {
+            public Response response { get; set; }
+
+            public class Response
+            {
+                public Player[] players { get; set; }
+
+                public class Player
+                {
+                    public string steamid { get; set; }
+                    public int communityvisibilitystate { get; set; }
+                    public int profilestate { get; set; }
+                    public string personaname { get; set; }
+                    public int lastlogoff { get; set; }
+                    public string profileurl { get; set; }
+                    public string avatar { get; set; }
+                    public string avatarmedium { get; set; }
+                    public string avatarfull { get; set; }
+                    public int personastate { get; set; }
+                    public string realname { get; set; }
+                    public string primaryclanid { get; set; }
+                    public int timecreated { get; set; }
+                    public int personastateflags { get; set; }
+                }
+            }
+        }
         #endregion Data Management
     }
 }
