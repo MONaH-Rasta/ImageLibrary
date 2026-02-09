@@ -14,7 +14,7 @@ using UnityEngine.Networking;
 
 namespace Oxide.Plugins
 {
-    [Info("Image Library", "Absolut & K1lly0u", "2.0.44")]
+    [Info("Image Library", "Absolut & K1lly0u", "2.0.45")]
     [Description("Plugin API for downloading and managing images")]
     class ImageLibrary : RustPlugin
     {
@@ -63,6 +63,8 @@ namespace Oxide.Plugins
                 if (!workshopNameToShortname.ContainsKey(workshopName))
                     workshopNameToShortname.Add(workshopName, item.shortname);
             }
+
+            AddDefaultUrls();
 
             CheckForRefresh();
 
@@ -308,42 +310,21 @@ namespace Oxide.Plugins
             orderPending = false;
             ServerMgr.Instance.StartCoroutine(ProcessLoadOrders());
         }
-
-        private byte[] GetItemImage(string itemName)
-        {
-            ItemDefinition itemDefinition = ItemManager.FindItemDefinition(itemName);
-            if (itemDefinition != null)
-            {
-                Texture2D texture = itemDefinition.iconSprite.texture;
-                RenderTexture tmp = RenderTexture.GetTemporary(texture.width, texture.height, 0, RenderTextureFormat.Default, RenderTextureReadWrite.sRGB);
-
-                Graphics.Blit(texture, tmp);
-
-                RenderTexture previous = RenderTexture.active;
-
-                RenderTexture.active = tmp;
-
-                Texture2D newTexture = new Texture2D(texture.width, texture.height);
-
-                newTexture.ReadPixels(new Rect(0, 0, tmp.width, tmp.height), 0, 0);
-                newTexture.Apply();
-
-                RenderTexture.active = previous;
-                RenderTexture.ReleaseTemporary(tmp);
-
-                byte[] bytes = newTexture.EncodeToPNG();
-
-                UnityEngine.Object.Destroy(newTexture);
-
-                return bytes;
-            }
-            return null;
-        }
-
-
+       
         #endregion Functions
 
         #region Workshop Names and Image URLs
+
+        private void AddDefaultUrls()
+        {
+            foreach(ItemDefinition itemDefinition in ItemManager.itemList)
+            {
+                string identifier = $"{itemDefinition.shortname}_0";
+                if (!imageUrls.URLs.ContainsKey(identifier))
+                    imageUrls.URLs.Add(identifier, $"https://www.rustedit.io/images/imagelibrary/{itemDefinition.shortname}.png");
+            }
+            SaveUrls();
+        }
 
         private readonly Dictionary<string, string> workshopNameToShortname = new Dictionary<string, string>
         {
@@ -376,352 +357,7 @@ namespace Oxide.Plugins
             {"woodstorage", "box.wooden" },
             {"workboots", "shoes.boots" }
         };
-
-       // private readonly Hash<string, string> defaultUrls = new Hash<string, string>
-       // {
-       //     {"ammo.handmade.shell","http://i.imgur.com/V0CyZ7j.png"},
-       //     {"ammo.pistol","http://i.imgur.com/gDNR7oj.png"},
-       //     {"ammo.pistol.fire","http://i.imgur.com/VyX0pAu.png"},
-       //     {"ammo.pistol.hv","http://i.imgur.com/E1dB4Nb.png"},
-       //     {"ammo.rifle","http://i.imgur.com/rqVkjX3.png"},
-       //     {"ammo.rifle.explosive","http://i.imgur.com/hpAxKQc.png"},
-       //     {"ammo.rifle.hv","http://i.imgur.com/BkG4hLM.png"},
-       //     {"ammo.rifle.incendiary","http://i.imgur.com/SN4XV2S.png"},
-       //     {"ammo.rocket.basic","http://i.imgur.com/Weg1M6y.png"},
-       //     {"ammo.rocket.fire","http://i.imgur.com/j4XMSmO.png"},
-       //     {"ammo.rocket.hv","http://i.imgur.com/5mdVIIV.png"},
-       //     {"ammo.rocket.smoke","http://i.imgur.com/kMTgSEI.png"},
-       //     {"ammo.shotgun","http://i.imgur.com/caFY5Bp.png"},
-       //     {"ammo.shotgun.fire", "http://i.imgur.com/FbIMeaK.png"},
-       //     {"ammo.shotgun.slug","http://i.imgur.com/ti5fCBp.png"},
-       //     {"antiradpills","http://i.imgur.com/SIhXEtB.png"},
-       //     {"apple","http://i.imgur.com/goMCM2w.png"},
-       //     {"apple.spoiled","http://i.imgur.com/2pi2sUH.png"},
-       //     {"arrow.bone", "http://i.imgur.com/wpIJhaO.png"},
-       //     {"arrow.fire", "http://i.imgur.com/AT0WVsQ.png"},
-       //     {"arrow.hv","http://i.imgur.com/r6VLTt2.png"},
-       //     {"arrow.wooden","http://i.imgur.com/yMCfjKh.png"},
-       //     {"attire.hide.boots","http://i.imgur.com/6S98FbC.png"},
-       //     {"attire.hide.helterneck","http://i.imgur.com/2RXe7cg.png"},
-       //     {"attire.hide.pants","http://i.imgur.com/rJy27KQ.png"},
-       //     {"attire.hide.poncho","http://i.imgur.com/cqHND3g.png"},
-       //     {"attire.hide.skirt","http://i.imgur.com/nRlYLJW.png"},
-       //     {"attire.hide.vest","http://i.imgur.com/RQ8LJ5q.png"},
-       //     {"autoturret","http://i.imgur.com/4R0ByHj.png"},
-       //     {"axe.salvaged","http://i.imgur.com/muTaCg2.png"},
-       //     {"bandage","http://i.imgur.com/TuMpnnu.png"},
-       //     {"barricade.concrete","http://i.imgur.com/91Ob9XP.png"},
-       //     {"barricade.metal","http://i.imgur.com/7rseBMC.png"},
-       //     {"barricade.sandbags","http://i.imgur.com/gBQLSgQ.png"},
-       //     {"barricade.stone","http://i.imgur.com/W8qTCEX.png"},
-       //     {"barricade.wood","http://i.imgur.com/ycYTO3W.png"},
-       //     {"barricade.woodwire","http://i.imgur.com/PMEFBla.png"},
-       //     {"battery.small","http://i.imgur.com/214z05n.png"},
-       //     {"bearmeat","http://i.imgur.com/hpL2I64.png"},
-       //     {"bearmeat.burned","http://i.imgur.com/f1eVA0W.png"},
-       //     {"bearmeat.cooked","http://i.imgur.com/e5Z6w1y.png"},
-       //     {"bed","http://i.imgur.com/K0zQtwh.png"},
-       //     {"black.raspberries","http://i.imgur.com/HZjKpX9.png"},
-       //     {"bleach","http://i.imgur.com/jhjh0gU.png"},
-       //     {"blood","http://i.imgur.com/Mdtvg2m.png"},
-       //     {"blueberries","http://i.imgur.com/tFZ66fB.png"},
-       //     {"blueprintbase","http://i.imgur.com/hJUDFv3.png"},
-       //     {"blueprulongbase","http://i.imgur.com/gMdRr6G.png"},
-       //     {"bone.armor.suit","http://i.imgur.com/FkFR1kX.png"},
-       //     {"bone.club","http://i.imgur.com/ib11D8V.png"},
-       //     {"bone.fragments","http://i.imgur.com/iOJbBGT.png"},
-       //     {"botabag","http://i.imgur.com/MkIOiUs.png"},
-       //     {"bow.hunting","http://i.imgur.com/Myv79jT.png"},
-       //     {"box.repair.bench","http://i.imgur.com/HpwYNjI.png"},
-       //     {"box.wooden","http://i.imgur.com/dFqTUTQ.png"},
-       //     {"box.wooden.large","http://i.imgur.com/qImBEtL.png"},
-       //     {"bucket.helmet","http://i.imgur.com/Sb5cnpz.png"},
-       //     {"bucket.water","http://i.imgur.com/svlCdlv.png"},
-       //     {"building.planner","http://i.imgur.com/oXu5F27.png"},
-       //     {"burlap.gloves","http://i.imgur.com/8aFVMgl.png"},
-       //     {"burlap.headwrap","http://i.imgur.com/u6YLWda.png"},
-       //     {"burlap.shirt","http://i.imgur.com/MUs4xL6.png"},
-       //     {"burlap.shoes","http://i.imgur.com/wXrkSxd.png"},
-       //     {"burlap.trousers","http://i.imgur.com/tDqEh7T.png"},
-       //     {"cactusflesh","http://i.imgur.com/8R16YDP.png"},
-       //     {"campfire","http://i.imgur.com/TiAlJpv.png"},
-       //     {"can.beans","http://i.imgur.com/Ysn6ThW.png"},
-       //     {"can.beans.empty","http://i.imgur.com/9K5In35.png"},
-       //     {"can.tuna","http://i.imgur.com/c8rDUP3.png"},
-       //     {"can.tuna.empty","http://i.imgur.com/GB02zHx.png"},
-       //     {"candycane","http://i.imgur.com/DSxrXOI.png"},
-       //     {"cctv.camera","http://i.imgur.com/4j4LD01.png"},
-       //     {"ceilinglight","http://i.imgur.com/3sikyL6.png"},
-       //     {"chainsaw", "http://i.imgur.com/B0fm4Hp.png"},
-       //     {"chair","http://i.imgur.com/AvNnKqU.png"},
-       //     {"charcoal","http://i.imgur.com/G2hyxqi.png"},
-       //     {"chicken.burned","http://i.imgur.com/34sYfir.png"},
-       //     {"chicken.cooked","http://i.imgur.com/UvHbBhH.png"},
-       //     {"chicken.raw","http://i.imgur.com/gMldKSz.png"},
-       //     {"chicken.spoiled","http://i.imgur.com/hiOEwGn.png"},
-       //     {"chocholate","http://i.imgur.com/Ymq7PsV.png"},
-       //     {"clone.corn","http://i.imgur.com/YLMueNU.png"},
-       //     {"clone.hemp","http://i.imgur.com/VbVPS5l.png"},
-       //     {"clone.pumpkin","http://i.imgur.com/MbBU6bB.png"},
-       //     {"cloth","http://i.imgur.com/0olknLW.png"},
-       //     {"coal","http://i.imgur.com/SIWOdbj.png"},
-       //     {"coffeecan.helmet","http://i.imgur.com/RrY8aMM.png"},
-       //     {"corn","http://i.imgur.com/6V5SJZ0.png"},
-       //     {"crossbow","http://i.imgur.com/nDBFhTA.png"},
-       //     {"crude.oil","http://i.imgur.com/VmQvwPS.png"},
-       //     {"cupboard.tool","http://i.imgur.com/OzUewI1.png"},
-       //     {"deer.skull.mask","http://i.imgur.com/sqLjUSE.png"},
-       //     {"deermeat.burned","http://i.imgur.com/f1eVA0W.png"},
-       //     {"deermeat.cooked","http://i.imgur.com/e5Z6w1y.png"},
-       //     {"deermeat.raw","http://i.imgur.com/hpL2I64.png"},
-       //     {"door.closer","http://i.imgur.com/QIKkGqT.png"},
-       //     {"door.double.hinged.metal","http://i.imgur.com/awNuhRv.png"},
-       //     {"door.double.hinged.toptier","http://i.imgur.com/oJCqHd6.png"},
-       //     {"door.double.hinged.wood","http://i.imgur.com/tcHmZXZ.png"},
-       //     {"door.hinged.metal","http://i.imgur.com/UGZftiQ.png"},
-       //     {"door.hinged.toptier","http://i.imgur.com/bc2TrfQ.png"},
-       //     {"door.hinged.wood","http://i.imgur.com/PrrWSN2.png"},
-       //     {"door.key","http://i.imgur.com/kw8UAN2.png"},
-       //     {"dropbox", "http://i.imgur.com/KqV8FcU.png"},
-       //     {"ducttape","http://i.imgur.com/llXWS6p.png"},
-       //     {"explosive.satchel","http://i.imgur.com/dlUW54q.png"},
-       //     {"explosive.timed","http://i.imgur.com/CtxUCgC.png"},
-       //     {"explosives","http://i.imgur.com/S43G64k.png"},
-       //     {"fat.animal","http://i.imgur.com/7NdUBKm.png"},
-       //     {"fish.cooked","http://i.imgur.com/Idtzv1t.png"},
-       //     {"fish.minnows","http://i.imgur.com/7LXZH2S.png"},
-       //     {"fish.raw","http://i.imgur.com/GdErxqf.png"},
-       //     {"fish.troutsmall","http://i.imgur.com/aJ2PquF.png"},
-       //     {"fishtrap.small","http://i.imgur.com/spuGlOj.png"},
-       //     {"flamethrower","http://i.imgur.com/CwhZ8i7.png"},
-       //     {"flameturret","http://i.imgur.com/PA38S2I.png"},
-       //     {"flare","http://i.imgur.com/MS0JcRT.png"},
-       //     {"floor.grill","http://i.imgur.com/bp7ZOkE.png"},
-       //     {"floor.ladder.hatch","http://i.imgur.com/suML6jj.png"},
-       //     {"fridge","http://i.imgur.com/BmJnSYi.png"},
-       //     {"fun.guitar","http://i.imgur.com/l96owHe.png"},
-       //     {"furnace","http://i.imgur.com/77i4nqb.png"},
-       //     {"furnace.large","http://i.imgur.com/NmsmUzo.png"},
-       //     {"gates.external.high.stone","http://i.imgur.com/o4NWWXp.png"},
-       //     {"gates.external.high.wood","http://i.imgur.com/DRa9a8G.png"},
-       //     {"gears","http://i.imgur.com/xLtFgiI.png"},
-       //     {"geiger.counter", "http://i.imgur.com/29GTEv2.png"},
-       //     {"generator.wind.scrap","http://i.imgur.com/fuQaE1H.png"},
-       //     {"glue","http://i.imgur.com/uy952o4.png"},
-       //     {"granolabar","http://i.imgur.com/3rvzSwj.png"},
-       //     {"grenade.beancan","http://i.imgur.com/FQZOd7m.png"},
-       //     {"grenade.f1","http://i.imgur.com/ZwrVuXh.png"},
-       //     {"gunpowder","http://i.imgur.com/qV7b4WD.png"},
-       //     {"guntrap", "http://i.imgur.com/iNFOxbT.png"},
-       //     {"hammer","http://i.imgur.com/KNG2Gvs.png"},
-       //     {"hammer.salvaged","http://i.imgur.com/5oh3Wke.png"},
-       //     {"hat.beenie","http://i.imgur.com/yDkGk47.png"},
-       //     {"hat.boonie","http://i.imgur.com/2b4OjxB.png"},
-       //     {"hat.candle","http://i.imgur.com/F7nP0PC.png"},
-       //     {"hat.cap","http://i.imgur.com/TfycJC9.png"},
-       //     {"hat.miner","http://i.imgur.com/RtRy2ne.png"},
-       //     {"hat.wolf","http://i.imgur.com/D2Z8QjL.png"},
-       //     {"hatchet","http://i.imgur.com/5juFLRZ.png"},
-       //     {"hazmat.boots","http://i.imgur.com/sfU4PdX.png"},
-       //     {"hazmat.gloves","http://i.imgur.com/JYTXvnx.png"},
-       //     {"hazmat.helmet","http://i.imgur.com/BHSrFsh.png"},
-       //     {"hazmat.jacket","http://i.imgur.com/uKk9ghN.png"},
-       //     {"hazmat.pants","http://i.imgur.com/ZsaLNUK.png"},
-       //     {"hazmatsuit","http://i.imgur.com/HJeL3SB.png"},
-       //     {"heavy.plate.helmet","http://i.imgur.com/jITLARt.png"},
-       //     {"heavy.plate.jacket","http://i.imgur.com/6NK8MLq.png"},
-       //     {"heavy.plate.pants","http://i.imgur.com/o0HcHwc.png"},
-       //     {"hoodie","http://i.imgur.com/EvGigZB.png"},
-       //     {"hq.metal.ore","http://i.imgur.com/kdBrQ2P.png"},
-       //     {"humanmeat.burned","http://i.imgur.com/DloSZvl.png"},
-       //     {"humanmeat.cooked","http://i.imgur.com/ba2j2rG.png"},
-       //     {"humanmeat.raw","http://i.imgur.com/28SpF8Y.png"},
-       //     {"humanmeat.spoiled","http://i.imgur.com/mSWVRUi.png"},
-       //     {"icepick.salvaged","http://i.imgur.com/ZTJLWdI.png"},
-       //     {"jacket","http://i.imgur.com/zU7TQPR.png"},
-       //     {"jacket.snow","http://i.imgur.com/32ZO3jO.png"},
-       //     {"jackolantern.angry","http://i.imgur.com/NRdMCfb.png"},
-       //     {"jackolantern.happy","http://i.imgur.com/2gIfuAO.png"},
-       //     {"knife.bone","http://i.imgur.com/9TaVbYX.png"},
-       //     {"ladder.wooden.wall","http://i.imgur.com/E3haHSe.png"},
-       //     {"lantern","http://i.imgur.com/UHQdu3Q.png"},
-       //     {"largemedkit","http://i.imgur.com/iPsWViD.png"},
-       //     {"leather","http://i.imgur.com/9rqWrIy.png"},
-       //     {"lmg.m249","http://i.imgur.com/f7Rzrn2.png"},
-       //     {"lock.code","http://i.imgur.com/pAXI8ZY.png"},
-       //     {"lock.key","http://i.imgur.com/HuelWn0.png"},
-       //     {"locker","http://i.imgur.com/vBjaQ1L.png"},
-       //     {"longsword","http://i.imgur.com/1StsKVe.png"},
-       //     {"lowgradefuel","http://i.imgur.com/CSNPLYX.png"},
-       //     {"mace","http://i.imgur.com/OtsvCkC.png"},
-       //     {"machete","http://i.imgur.com/KfwkwV8.png"},
-       //     {"mailbox", "http://i.imgur.com/DaDrDIK.png"},
-       //     {"map","http://i.imgur.com/u8HBelr.png"},
-       //     {"mask.balaclava","http://i.imgur.com/BYFgE5c.png"},
-       //     {"mask.bandana","http://i.imgur.com/PImuCst.png"},
-       //     {"meat.boar","http://i.imgur.com/4ijrHrn.png"},
-       //     {"meat.pork.burned","http://i.imgur.com/5Dam9qQ.png"},
-       //     {"meat.pork.cooked","http://i.imgur.com/yhgxCPG.png"},
-       //     {"metal.facemask","http://i.imgur.com/BPd5q6h.png"},
-       //     {"metal.fragments","http://i.imgur.com/1bzDvUs.png"},
-       //     {"metal.ore","http://i.imgur.com/yrTGHvv.png"},
-       //     {"metal.plate.torso","http://i.imgur.com/lMw6ez2.png"},
-       //     {"metal.refined","http://i.imgur.com/j2947YU.png"},
-       //     {"metalblade","http://i.imgur.com/OlsKPFm.png"},
-       //     {"metalpipe","http://i.imgur.com/7MBFL5S.png"},
-       //     {"metalspring","http://i.imgur.com/8GDTUnI.png"},
-       //     {"mining.pumpjack","http://i.imgur.com/FWbMASw.png"},
-       //     {"mining.quarry","http://i.imgur.com/4Mgh1nK.png"},
-       //     {"mushroom","http://i.imgur.com/FeWuvuh.png"},
-       //     {"note","http://i.imgur.com/AM3Uech.png"},
-       //     {"pants","http://i.imgur.com/iiFJAso.png"},
-       //     {"pants.shorts","http://i.imgur.com/BQgTzlT.png"},
-       //     {"paper","http://i.imgur.com/pK49c6M.png"},
-       //     {"pickaxe","http://i.imgur.com/QNirWhG.png"},
-       //     {"pistol.eoka","http://i.imgur.com/SSb9czm.png"},
-       //     {"pistol.m92","http://i.imgur.com/dEwdnmG.png"},
-       //     {"pistol.python","http://i.imgur.com/67kllOx.png"},
-       //     {"pistol.revolver","http://i.imgur.com/C6BHyBB.png"},
-       //     {"pistol.semiauto","http://i.imgur.com/Zwqg3ic.png"},
-       //     {"planter.large","http://i.imgur.com/c5HGHsx.png"},
-       //     {"planter.small","http://i.imgur.com/dE1Th2A.png"},
-       //     {"pookie.bear","http://i.imgur.com/KJSccj0.png"},
-       //     {"propanetank","http://i.imgur.com/T5Fqxcv.png"},
-       //     {"pumpkin","http://i.imgur.com/Gb9NvdQ.png"},
-       //     {"research.table","http://i.imgur.com/C9wL7Kk.png"},
-       //     {"researchpaper","http://i.imgur.com/Pv8jxrl.png"},
-       //     {"rifle.ak","http://i.imgur.com/qlgloXW.png"},
-       //     {"rifle.bolt","http://i.imgur.com/8oVVXJS.png"},
-       //     {"rifle.lr300","http://i.imgur.com/NYffUwv.png"},
-       //     {"rifle.semiauto","http://i.imgur.com/UfGP5kq.png"},
-       //     {"riflebody","http://i.imgur.com/h90OZEg.png"},
-       //     {"riot.helmet","http://i.imgur.com/NlxGOum.png"},
-       //     {"roadsign.jacket","http://i.imgur.com/tqpDp2V.png"},
-       //     {"roadsign.kilt","http://i.imgur.com/WLh1Nv4.png"},
-       //     {"roadsigns","http://i.imgur.com/iImEIvW.png"},
-       //     {"rock","http://i.imgur.com/2GMBs5M.png"},
-       //     {"rocket.launcher","http://i.imgur.com/2yDyb9p.png"},
-       //     {"rope","http://i.imgur.com/ywHRqW8.png"},
-       //     {"rug","http://i.imgur.com/LvJNT1B.png"},
-       //     {"rug.bear", "http://i.imgur.com/Fn79eMP.png"},
-       //     {"salvaged.cleaver","http://i.imgur.com/DrelWEg.png"},
-       //     {"salvaged.sword","http://i.imgur.com/M6gWbNv.png"},
-       //     {"santahat","http://i.imgur.com/bmOV0aX.png"},
-       //     {"scrap", "http://i.imgur.com/DmszIgB.png"},
-       //     {"searchlight", "http://i.imgur.com/L9Nxhdv.png"},
-       //     {"seed.corn","http://i.imgur.com/u9ZPaeG.png"},
-       //     {"seed.hemp","http://i.imgur.com/wO6aojb.png"},
-       //     {"seed.pumpkin","http://i.imgur.com/mHaV8ei.png"},
-       //     {"semibody","http://i.imgur.com/UPljd8Y.png"},
-       //     {"sewingkit","http://i.imgur.com/KmXDM8D.png"},
-       //     {"sheetmetal","http://i.imgur.com/1GEwiaL.png"},
-       //     {"shelves","http://i.imgur.com/vjtdyk5.png"},
-       //     {"shirt.collared","http://i.imgur.com/2CaYDye.png"},
-       //     {"shirt.tanktop","http://i.imgur.com/8woukzm.png"},
-       //     {"shoes.boots","http://i.imgur.com/b8HJ3TJ.png"},
-       //     {"shotgun.double","http://i.imgur.com/Pm2Q4Dj.png"},
-       //     {"shotgun.pump","http://i.imgur.com/OHRph6g.png"},
-       //     {"shotgun.spas12", "http://i.imgur.com/WzgP1Ng.png"},
-       //     {"shotgun.waterpipe","http://i.imgur.com/3BliJtR.png"},
-       //     {"shutter.metal.embrasure.a","http://i.imgur.com/1ke0LVO.png"},
-       //     {"shutter.metal.embrasure.b","http://i.imgur.com/uRtgNRH.png"},
-       //     {"shutter.wood.a","http://i.imgur.com/VngPUi2.png"},
-       //     {"sign.hanging","http://i.imgur.com/VIeRGh9.png"},
-       //     {"sign.hanging.banner.large","http://i.imgur.com/Owr3668.png"},
-       //     {"sign.hanging.ornate","http://i.imgur.com/nQ1xHYb.png"},
-       //     {"sign.pictureframe.landscape","http://i.imgur.com/nNh1uro.png"},
-       //     {"sign.pictureframe.portrait","http://i.imgur.com/CQr8UYq.png"},
-       //     {"sign.pictureframe.tall","http://i.imgur.com/3b51GfA.png"},
-       //     {"sign.pictureframe.xl","http://i.imgur.com/3zdBDqa.png"},
-       //     {"sign.pictureframe.xxl","http://i.imgur.com/9xSgewe.png"},
-       //     {"sign.pole.banner.large","http://i.imgur.com/nGRDZrO.png"},
-       //     {"sign.post.double","http://i.imgur.com/CXUsPSn.png"},
-       //     {"sign.post.single","http://i.imgur.com/0qXuSMs.png"},
-       //     {"sign.post.town","http://i.imgur.com/KgN4T1C.png"},
-       //     {"sign.post.town.roof","http://i.imgur.com/hCLJXg4.png"},
-       //     {"sign.wooden.huge","http://i.imgur.com/DehcZTb.png"},
-       //     {"sign.wooden.large","http://i.imgur.com/BItcvBB.png"},
-       //     {"sign.wooden.medium","http://i.imgur.com/zXJcB26.png"},
-       //     {"sign.wooden.small","http://i.imgur.com/wfDYYYW.png"},
-       //     {"skull.human","http://i.imgur.com/ZFnWubS.png"},
-       //     {"skull.wolf","http://i.imgur.com/f4MRE72.png"},
-       //     {"sleepingbag","http://i.imgur.com/oJes3Lo.png"},
-       //     {"small.oil.refinery","http://i.imgur.com/Qqz6RgS.png"},
-       //     {"smallwaterbottle","http://i.imgur.com/YTLCucH.png"},
-       //     {"smg.2","http://i.imgur.com/ElXI2uv.png"},
-       //     {"smg.mp5","http://i.imgur.com/ohazNYk.png"},
-       //     {"smg.thompson","http://i.imgur.com/rSQ5nHj.png"},
-       //     {"smgbody","http://i.imgur.com/EzXRKxC.png"},
-       //     {"spear.stone","http://i.imgur.com/Y3HstyV.png"},
-       //     {"spear.wooden","http://i.imgur.com/7QpIs8B.png"},
-       //     {"spikes.floor","http://i.imgur.com/Nj0yJs0.png"},
-       //     {"spinner.wheel","http://i.imgur.com/dWTLLAy.png"},
-       //     {"stash.small","http://i.imgur.com/fH4RWZe.png"},
-       //     {"sticks","http://i.imgur.com/1g7YbxM.png"},
-       //     {"stocking.large","http://i.imgur.com/di39MBT.png"},
-       //     {"stocking.small","http://i.imgur.com/6eAg1zi.png"},
-       //     {"stone.pickaxe","http://i.imgur.com/54azzFs.png"},
-       //     {"stonehatchet","http://i.imgur.com/toLaFZd.png"},
-       //     {"stones","http://i.imgur.com/cluFzuZ.png"},
-       //     {"sulfur","http://i.imgur.com/1RTTB7k.png"},
-       //     {"sulfur.ore","http://i.imgur.com/AdxkKGb.png"},
-       //     {"supply.signal","http://i.imgur.com/wj6yzow.png"},
-       //     {"surveycharge","http://i.imgur.com/UPNvuY0.png"},
-       //     {"syringe.medical","http://i.imgur.com/DPDicE6.png"},
-       //     {"table","http://i.imgur.com/Okz7ePi.png"},
-       //     {"target.reactive","http://i.imgur.com/BNcKZnU.png"},
-       //     {"targeting.computer","http://i.imgur.com/oPMPl3B.png"},
-       //     {"tarp","http://i.imgur.com/lXtsQMy.png"},
-       //     {"techparts","http://i.imgur.com/ajtAyzI.png"},
-       //     {"tool.binoculars", "http://i.imgur.com/nauvcB5.png"},
-       //     {"tool.camera","http://i.imgur.com/4AaLCfW.png"},
-       //     {"torch","http://i.imgur.com/qKYxg5E.png"},
-       //     {"trap.bear","http://i.imgur.com/GZD4bVy.png"},
-       //     {"trap.landmine","http://i.imgur.com/YR0lVCs.png"},
-       //     {"tshirt","http://i.imgur.com/SAD8dWX.png"},
-       //     {"tshirt.long","http://i.imgur.com/KPxtIQI.png"},
-       //     {"tunalight","http://i.imgur.com/O1u8qqd.png"},
-       //     {"vending.machine","http://i.imgur.com/LnWiZPZ.png"},
-       //     {"wall.external.high","http://i.imgur.com/mB8oila.png"},
-       //     {"wall.external.high.stone","http://i.imgur.com/7t3BdwH.png"},
-       //     {"wall.frame.cell","http://i.imgur.com/oLj65GS.png"},
-       //     {"wall.frame.cell.gate","http://i.imgur.com/iAcwJmG.png"},
-       //     {"wall.frame.fence","http://i.imgur.com/4HVSY9Y.png"},
-       //     {"wall.frame.fence.gate","http://i.imgur.com/mpmO78C.png"},
-       //     {"wall.frame.netting","http://i.imgur.com/HWm5Zuy.png"},
-       //     {"wall.frame.shopfront","http://i.imgur.com/G7fB7kk.png"},
-       //     {"wall.frame.shopfront.metal","http://i.imgur.com/kcFplwc.png"},
-       //     {"wall.window.bars.metal","http://i.imgur.com/QmkIpkZ.png"},
-       //     {"wall.window.bars.toptier","http://i.imgur.com/AsMdaCc.png"},
-       //     {"wall.window.bars.wood","http://i.imgur.com/VS3SVVB.png"},
-       //     {"water","http://i.imgur.com/xdz5L7M.png"},
-       //     {"water.barrel","http://i.imgur.com/JsmzCeU.png"},
-       //     {"water.catcher.large","http://i.imgur.com/YWrJQoa.png"},
-       //     {"water.catcher.small","http://i.imgur.com/PTXcYXs.png"},
-       //     {"water.purifier","http://i.imgur.com/L7R4Ral.png"},
-       //     {"water.salt","http://i.imgur.com/d4ihUtv.png"},
-       //     {"waterjug","http://i.imgur.com/BJzeMkc.png"},
-       //     {"weapon.mod.flashlight","http://i.imgur.com/4gFapPt.png"},
-       //     {"weapon.mod.holosight","http://i.imgur.com/R76B83t.png"},
-       //     {"weapon.mod.lasersight","http://i.imgur.com/rxIzDwY.png"},
-       //     {"weapon.mod.muzzleboost","http://i.imgur.com/U9aMaPN.png"},
-       //     {"weapon.mod.muzzlebrake","http://i.imgur.com/sjxJIjT.png"},
-       //     {"weapon.mod.silencer","http://i.imgur.com/oighpzk.png"},
-       //     {"weapon.mod.simplesight", "http://i.imgur.com/D8lbB75.png"},
-       //     {"weapon.mod.small.scope","http://i.imgur.com/jMvDHLz.png"},
-       //     {"wolfmeat.burned","http://i.imgur.com/zAJhDNd.png"},
-       //     {"wolfmeat.cooked","http://i.imgur.com/LKlgpMe.png"},
-       //     {"wolfmeat.raw","http://i.imgur.com/qvMvis8.png"},
-       //     {"wolfmeat.spoiled","http://i.imgur.com/8kXOVyJ.png"},
-       //     {"wood","http://i.imgur.com/AChzDls.png"},
-       //     {"wood.armor.helmet", "http://i.imgur.com/ByKb3BS.png"},
-       //     {"wood.armor.jacket","http://i.imgur.com/9PUyVIv.png"},
-       //     {"wood.armor.pants","http://i.imgur.com/k2O9xEX.png"},
-       //     {"xmas.present.large","http://i.imgur.com/dU3nhYo.png"},
-       //     {"xmas.present.medium","http://i.imgur.com/Ov5YUty.png"},
-       //     {"xmas.present.small","http://i.imgur.com/hWCd67B.png"}
-       //};
-
+       
         #endregion Workshop Names and Image URLs
 
         #region API
@@ -767,7 +403,7 @@ namespace Oxide.Plugins
                 {
                     AddImage(value, imageName, imageId);
                     return imageIdentifiers.imageIds["LOADING_0"];
-                }
+                }               
             }
 
             if (returnUrl && !string.IsNullOrEmpty(value))
@@ -893,30 +529,21 @@ namespace Oxide.Plugins
         public void LoadImageList(string title, List<KeyValuePair<string, ulong>> imageList, Action callback = null)
         {
             Dictionary<string, string> newLoadOrderURL = new Dictionary<string, string>();
-            Dictionary<string, byte[]> newLoadOrderBytes = new Dictionary<string, byte[]>();
 
             foreach (var image in imageList)
             {
                 if (HasImage(image.Key, image.Value))
                     continue;
+
                 string identifier = $"{image.Key}_{image.Value}";
 
-                if (itemShortNames.Contains(image.Key) && image.Value == 0)
-                {
-                    byte[] bytes = GetItemImage(image.Key);
-                    if (bytes != null)
-                        newLoadOrderBytes[identifier] = bytes;
-                }
-                else
-                {
-                    if (imageUrls.URLs.ContainsKey(identifier))
-                        newLoadOrderURL[identifier] = imageUrls.URLs[identifier];
-                }
+                if (imageUrls.URLs.ContainsKey(identifier) && !newLoadOrderURL.ContainsKey(identifier))                
+                    newLoadOrderURL.Add(identifier, imageUrls.URLs[identifier]);
             }
 
-            if (newLoadOrderURL.Count > 0 || newLoadOrderBytes.Count > 0)
+            if (newLoadOrderURL.Count > 0)
             {
-                loadOrders.Enqueue(new LoadOrder(title, newLoadOrderURL, newLoadOrderBytes, false, callback));
+                loadOrders.Enqueue(new LoadOrder(title, newLoadOrderURL, null, false, callback));
                 if (!orderPending)
                     ServerMgr.Instance.StartCoroutine(ProcessLoadOrders());
             }
@@ -1257,12 +884,7 @@ namespace Oxide.Plugins
             if (imageIdentifiers == null)
                 imageIdentifiers = new ImageIdentifiers();
             if (imageUrls == null)
-                imageUrls = new ImageURLs();
-            if (imageUrls.URLs.Count == 0)
-            {
-                //foreach (var item in defaultUrls)
-                    //imageUrls.URLs.Add($"{item.Key}_0", item.Value);
-            }
+                imageUrls = new ImageURLs();            
         }
 
         private class ImageIdentifiers
