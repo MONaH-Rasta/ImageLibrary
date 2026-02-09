@@ -14,7 +14,7 @@ using UnityEngine.Networking;
 
 namespace Oxide.Plugins
 {
-    [Info("Image Library", "Absolut & K1lly0u", "2.0.46")]
+    [Info("Image Library", "Absolut & K1lly0u", "2.0.47")]
     [Description("Plugin API for downloading and managing images")]
     class ImageLibrary : RustPlugin
     {
@@ -47,14 +47,14 @@ namespace Oxide.Plugins
             identifiers = Interface.Oxide.DataFileSystem.GetFile("ImageLibrary/image_data");
             urls = Interface.Oxide.DataFileSystem.GetFile("ImageLibrary/image_urls");
             skininfo = Interface.Oxide.DataFileSystem.GetFile("ImageLibrary/skin_data");
-        }
 
-        private void OnServerInitialized()
-        {
             il = this;
             LoadVariables();
             LoadData();
+        }
 
+        private void OnServerInitialized()
+        {           
             itemShortNames = ItemManager.itemList.Select(x => x.shortname).ToArray();
 
             foreach (ItemDefinition item in ItemManager.itemList)
