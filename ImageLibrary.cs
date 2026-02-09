@@ -14,7 +14,7 @@ using UnityEngine.Networking;
 
 namespace Oxide.Plugins
 {
-    [Info("Image Library", "Absolut & K1lly0u", "2.0.45")]
+    [Info("Image Library", "Absolut & K1lly0u", "2.0.46")]
     [Description("Plugin API for downloading and managing images")]
     class ImageLibrary : RustPlugin
     {
@@ -139,48 +139,55 @@ namespace Oxide.Plugins
 
         private IEnumerator GetWorkshopSkins()
         {
-            var query = Rust.Global.SteamServer.Workshop.CreateQuery();
-            query.Page = 1;
-            query.PerPage = 50000;
-            query.RequireTags.Add("version3");
-            query.RequireTags.Add("skin");
-            query.RequireAllTags = true;
-            query.Run();
-            Puts("Querying Steam for available workshop items. Please wait for a response from Steam...");
-            yield return new WaitWhile(() => query.IsRunning);
-            Puts($"Found {query.Items.Length} workshop items. Gathering image URLs");
+            yield break;
+            //var q = Steamworks.Ugc.Query.Items;
+            //q = q.WithTag("version3");
+            //q = q.WithTag("skin");
+            //System.Threading.Tasks.Task<Steamworks.Ugc.ResultPage?> result = q.GetPageAsync(0);
 
-            foreach (var item in query.Items)
-            {
-                if (!string.IsNullOrEmpty(item.PreviewImageUrl))
-                {
-                    foreach (var tag in item.Tags)
-                    {
-                        var adjTag = tag.ToLower().Replace("skin", "").Replace(" ", "").Replace("-", "");
-                        if (workshopNameToShortname.ContainsKey(adjTag))
-                        {
-                            string identifier = $"{workshopNameToShortname[adjTag]}_{item.Id}";
+            
+            //var query = Rust.Global.SteamServer.Workshop.CreateQuery();
+            //query.Page = 1;
+            //query.PerPage = 50000;
+            //query.RequireTags.Add("version3");
+            //query.RequireTags.Add("skin");
+            //query.RequireAllTags = true;
+            //query.Run();
+            //Puts("Querying Steam for available workshop items. Please wait for a response from Steam...");
+            //yield return new WaitWhile(() => query.IsRunning);
+            //Puts($"Found {query.Items.Length} workshop items. Gathering image URLs");
 
-                            if (!imageUrls.URLs.ContainsKey(identifier))
-                                imageUrls.URLs.Add(identifier, item.PreviewImageUrl);
+            //foreach (var item in query.Items)
+            //{
+            //    if (!string.IsNullOrEmpty(item.PreviewImageUrl))
+            //    {
+            //        foreach (var tag in item.Tags)
+            //        {
+            //            var adjTag = tag.ToLower().Replace("skin", "").Replace(" ", "").Replace("-", "");
+            //            if (workshopNameToShortname.ContainsKey(adjTag))
+            //            {
+            //                string identifier = $"{workshopNameToShortname[adjTag]}_{item.Id}";
 
-                            skinInformation.skinData[identifier] = new Dictionary<string, object>
-                                {
-                                    {"title", item.Title },
-                                    {"votesup", item.VotesUp },
-                                    {"votesdown", item.VotesDown },
-                                    {"description", item.Description },
-                                    {"score", item.Score },
-                                    {"views", item.WebsiteViews },
-                                    {"created", item.Created },
-                                };
-                        }
-                    }
-                }
-            }
-            query.Dispose();
-            SaveUrls();
-            SaveSkinInfo();
+            //                if (!imageUrls.URLs.ContainsKey(identifier))
+            //                    imageUrls.URLs.Add(identifier, item.PreviewImageUrl);
+
+            //                skinInformation.skinData[identifier] = new Dictionary<string, object>
+            //                    {
+            //                        {"title", item.Title },
+            //                        {"votesup", item.VotesUp },
+            //                        {"votesdown", item.VotesDown },
+            //                        {"description", item.Description },
+            //                        {"score", item.Score },
+            //                        {"views", item.WebsiteViews },
+            //                        {"created", item.Created },
+            //                    };
+            //            }
+            //        }
+            //    }
+            //}
+            //query.Dispose();
+            //SaveUrls();
+            //SaveSkinInfo();
         }
 
         private IEnumerator ProcessLoadOrders()
@@ -620,12 +627,14 @@ namespace Oxide.Plugins
         {
             if (arg.Connection == null || arg.Connection.authLevel > 0)
             {
-                PrintWarning("Wiping ImageLibrary data and redownloading ImageLibrary specific images. All plugins that have registered images via ImageLibrary will need to be re-loaded!");
-                RefreshImagery();
-
                 ulong userId = arg.Connection == null || arg.IsRcon ? 0U : arg.Connection.userid;
                 if (pendingAnswers.Contains(userId))
+                {
+                    PrintWarning("Wiping ImageLibrary data and redownloading ImageLibrary specific images. All plugins that have registered images via ImageLibrary will need to be re-loaded!");
+                    RefreshImagery();
+
                     pendingAnswers.Remove(userId);
+                }
             }
         }
 
@@ -634,10 +643,13 @@ namespace Oxide.Plugins
         {
             if (arg.Connection == null || arg.Connection.authLevel > 0)
             {
-                SendReply(arg, "ImageLibrary data wipe aborted!");
                 ulong userId = arg.Connection == null || arg.IsRcon ? 0U : arg.Connection.userid;
+
                 if (pendingAnswers.Contains(userId))
+                {
+                    SendReply(arg, "ImageLibrary data wipe aborted!"); 
                     pendingAnswers.Remove(userId);
+                }
             }
         }
 
