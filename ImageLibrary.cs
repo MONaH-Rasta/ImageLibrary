@@ -14,7 +14,7 @@ using UnityEngine.Networking;
 
 namespace Oxide.Plugins
 {
-    [Info("Image Library", "Absolut & K1lly0u", "2.0.48")]
+    [Info("Image Library", "Absolut & K1lly0u", "2.0.49")]
     [Description("Plugin API for downloading and managing images")]
     class ImageLibrary : RustPlugin
     {
@@ -569,7 +569,7 @@ namespace Oxide.Plugins
                             Dictionary<string, Dictionary<ulong, string>> loadOrder = new Dictionary<string, Dictionary<ulong, string>>();
 
                             foreach (PublishedFileQueryDetail item in query.response.publishedfiledetails)
-                            {                                
+                            {
                                 if (!string.IsNullOrEmpty(item.preview_url))
                                 {
                                     ulong skinId = Convert.ToUInt64(item.publishedfileid);
@@ -578,9 +578,10 @@ namespace Oxide.Plugins
 
                                     if (kvp.HasValue)
                                     {
-                                        string identifier = $"{kvp.Value.Key}_{kvp.Value}";
+                                        string identifier = $"{kvp.Value.Key}_{kvp.Value.Value}";
 
-                                        newLoadOrderURL.Add(identifier, item.preview_url);
+                                        if (!newLoadOrderURL.ContainsKey(identifier))
+                                            newLoadOrderURL.Add(identifier, item.preview_url);
 
                                         if (!imageUrls.URLs.ContainsKey(identifier))
                                             imageUrls.URLs.Add(identifier, item.preview_url);
@@ -603,7 +604,7 @@ namespace Oxide.Plugins
 
                             SaveUrls();
                             SaveSkinInfo();
-                            
+
                             if (requestedSkins.Count != 0)
                             {
                                 Puts($"{requestedSkins.Count} workshop skin ID's for image batch ({title}) are invalid! They may have been removed from the workshop\nIDs: {requestedSkins.ToSentence()}");
