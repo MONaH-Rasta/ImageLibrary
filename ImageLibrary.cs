@@ -14,7 +14,7 @@ using UnityEngine.Networking;
 
 namespace Oxide.Plugins
 {
-    [Info("Image Library", "Absolut & K1lly0u", "2.0.53")]
+    [Info("Image Library", "Absolut & K1lly0u", "2.0.54")]
     [Description("Plugin API for downloading and managing images")]
     class ImageLibrary : RustPlugin
     {
@@ -493,13 +493,31 @@ namespace Oxide.Plugins
         [HookMethod("RemoveImage")]
         public void RemoveImage(string imageName, ulong imageId)
         {
-            if (HasImage(imageName, imageId))
+            if (!HasImage(imageName, imageId))
                 return;
 
             uint crc = uint.Parse(GetImage(imageName, imageId));
             FileStorage.server.Remove(crc, FileStorage.Type.png, CommunityEntity.ServerInstance.net.ID);
         }
 
+        [HookMethod("SendImage")]
+        public void SendImage(BasePlayer player, string imageName, ulong imageId = 0)
+        {
+            if (!HasImage(imageName, imageId) || player?.net?.connection == null)
+                return;
+
+            uint crc = uint.Parse(GetImage(imageName, imageId));
+            byte[] array = FileStorage.server.Get(crc, FileStorage.Type.png, CommunityEntity.ServerInstance.net.ID);
+
+            if (array == null)
+                return;
+
+            CommunityEntity.ServerInstance.ClientRPCEx<uint, uint, byte[]>(new Network.SendInfo(player.net.connection)
+            {
+                channel = 2,
+                method = Network.SendMethod.Reliable
+            }, null, "CL_ReceiveFilePng", crc, (uint)array.Length, array);
+        }
         #endregion API
 
         #region Steam API
