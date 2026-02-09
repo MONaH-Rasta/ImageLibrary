@@ -14,7 +14,7 @@ using UnityEngine.Networking;
 
 namespace Oxide.Plugins
 {
-    [Info("Image Library", "Absolut & K1lly0u", "2.0.61")]
+    [Info("Image Library", "Absolut & K1lly0u", "2.0.62")]
     [Description("Plugin API for downloading and managing images")]
     class ImageLibrary : RustPlugin
     {
@@ -206,7 +206,7 @@ namespace Oxide.Plugins
                         if (!uint.TryParse(image.Value, out imageId))
                             continue;
 
-                        byte[] bytes = db.QueryBlob("SELECT data FROM data WHERE crc = ? AND filetype = ? AND entid = ? LIMIT 1", new object[] { (int)imageId, 0, imageIdentifiers.lastCEID });
+                        byte[] bytes = db.Query<byte[], int, int, int>("SELECT data FROM data WHERE crc = ? AND filetype = ? AND entid = ? LIMIT 1", (int)imageId, 0, (int)imageIdentifiers.lastCEID );
                         if (bytes != null)
                             oldFiles.Add(image.Key, bytes);
                         else
