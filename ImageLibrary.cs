@@ -14,7 +14,7 @@ using UnityEngine.Networking;
 
 namespace Oxide.Plugins
 {
-    [Info("Image Library", "Absolut & K1lly0u", "2.0.43")]
+    [Info("Image Library", "Absolut & K1lly0u", "2.0.44")]
     [Description("Plugin API for downloading and managing images")]
     class ImageLibrary : RustPlugin
     {
@@ -833,7 +833,11 @@ namespace Oxide.Plugins
                 if (!orderPending)
                     ServerMgr.Instance.StartCoroutine(ProcessLoadOrders());
             }
-            else callback.Invoke();
+            else
+            {
+                if (callback != null)
+                    callback.Invoke();
+            }
         }
 
         [HookMethod("ImportItemList")]
@@ -855,7 +859,11 @@ namespace Oxide.Plugins
                 if (!orderPending)
                     ServerMgr.Instance.StartCoroutine(ProcessLoadOrders());
             }
-            else callback.Invoke();
+            else
+            {
+                if (callback != null)
+                    callback.Invoke();
+            }
         }
 
         [HookMethod("ImportImageData")]
@@ -874,7 +882,11 @@ namespace Oxide.Plugins
                 if (!orderPending)
                     ServerMgr.Instance.StartCoroutine(ProcessLoadOrders());
             }
-            else callback.Invoke();
+            else
+            {
+                if (callback != null)
+                    callback.Invoke();
+            }
         }
         
         [HookMethod("LoadImageList")]
@@ -908,7 +920,11 @@ namespace Oxide.Plugins
                 if (!orderPending)
                     ServerMgr.Instance.StartCoroutine(ProcessLoadOrders());
             }
-            else callback.Invoke();
+            else
+            {
+                if (callback != null)
+                    callback.Invoke();
+            }
         }
 
         [HookMethod("RemoveImage")]
