@@ -14,7 +14,7 @@ using UnityEngine.Networking;
 
 namespace Oxide.Plugins
 {
-    [Info("Image Library", "Absolut & K1lly0u", "2.0.63")]
+    [Info("Image Library", "Absolut & K1lly0u", "2.0.64")]
     [Description("Plugin API for downloading and managing images")]
     class ImageLibrary : RustPlugin
     {
@@ -1121,13 +1121,17 @@ namespace Oxide.Plugins
 
             private IEnumerator DownloadImage(QueueItem info)
             {
-                UnityWebRequest www = UnityWebRequest.Get(info.url);
+                const string HTTP = "http://";
+                const string HTTPS = "https://";
+                
+                UnityWebRequest www = UnityWebRequest.Get(info.url.Replace(HTTP, HTTPS));
 
                 yield return www.SendWebRequest();
-                if (il == null) yield break;
-                if (www.isNetworkError || www.isHttpError)
+                if (il == null) 
+                    yield break;
+                if (www.result != UnityWebRequest.Result.Success)
                 {
-                    print(string.Format("Image failed to download! Error: {0} - Image Name: {1} - Image URL: {2}", www.error, info.name, info.url));
+                    print($"Image failed to download! Error: {www.error} - Image Name: {info.name} - Image URL: {info.url}");
                     www.Dispose();
                     isLoading = false;
                     Next();
