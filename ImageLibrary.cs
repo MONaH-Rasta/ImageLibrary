@@ -14,7 +14,7 @@ using UnityEngine.Networking;
 
 namespace Oxide.Plugins
 {
-    [Info("Image Library", "Absolut & K1lly0u", "2.0.62")]
+    [Info("Image Library", "Absolut & K1lly0u", "2.0.63")]
     [Description("Plugin API for downloading and managing images")]
     class ImageLibrary : RustPlugin
     {
@@ -39,8 +39,6 @@ namespace Oxide.Plugins
         private const string STEAM_API_URL = "https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/";
         private const string STEAM_AVATAR_URL = "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key={0}&steamids={1}";
 
-        private string[] itemShortNames;
-
         #endregion Fields
 
         #region Oxide Hooks
@@ -58,10 +56,11 @@ namespace Oxide.Plugins
 
         private void OnServerInitialized()
         {
-            itemShortNames = ItemManager.itemList.Select(x => x.shortname).ToArray();
-
             foreach (ItemDefinition item in ItemManager.itemList)
             {
+                if (string.IsNullOrEmpty(item.displayName.english))
+                    continue;
+                
                 string workshopName = item.displayName.english.ToLower().Replace("skin", "").Replace(" ", "").Replace("-", "");
                 if (!workshopNameToShortname.ContainsKey(workshopName))
                     workshopNameToShortname.Add(workshopName, item.shortname);
@@ -105,6 +104,7 @@ namespace Oxide.Plugins
                     foreach (KeyValuePair<string, string> item in nextLoad.imageList)
                         assets.Add(item.Key, item.Value);
                 }
+                
                 if (nextLoad.imageData != null && nextLoad.imageData.Count > 0)
                 {
                     foreach (KeyValuePair<string, byte[]> item in nextLoad.imageData)
@@ -202,8 +202,7 @@ namespace Oxide.Plugins
                     {
                         KeyValuePair<string, string> image = imageIdentifiers.imageIds.ElementAt(i);
 
-                        uint imageId;
-                        if (!uint.TryParse(image.Value, out imageId))
+                        if (!uint.TryParse(image.Value, out uint imageId))
                             continue;
 
                         byte[] bytes = db.Query<byte[], int, int, int>("SELECT data FROM data WHERE crc = ? AND filetype = ? AND entid = ? LIMIT 1", (int)imageId, 0, (int)imageIdentifiers.lastCEID );
@@ -254,10 +253,7 @@ namespace Oxide.Plugins
         {
             foreach (ItemDefinition itemDefinition in ItemManager.itemList)
             {
-                string identifier = $"{itemDefinition.shortname}_0";
-                if (!imageUrls.URLs.ContainsKey(identifier))
-                    imageUrls.URLs.Add(identifier, $"{configData.ImageURL}{itemDefinition.shortname}.png");
-                else imageUrls.URLs[identifier] = $"{configData.ImageURL}{itemDefinition.shortname}.png";
+                imageUrls.URLs[$"{itemDefinition.shortname}_0"] = $"{configData.ImageURL}{itemDefinition.shortname}.png";
             }
             
             SaveUrls();
@@ -281,14 +277,9 @@ namespace Oxide.Plugins
                         if (skin.invItem == null || string.IsNullOrEmpty(skin.invItem.itemname))
                             continue;
 
-                        string filename;
-                        if (collection.TryGetValue(skin.name, out filename))
+                        if (collection.TryGetValue(skin.name, out string filename))
                         {
-                            string identifier = $"{skin.invItem.itemname}_{skin.id}";
-
-                            if (!imageUrls.URLs.ContainsKey(identifier))
-                                imageUrls.URLs.Add(identifier, $"{configData.ImageURL}{filename}.png");
-                            else imageUrls.URLs[identifier] = $"{configData.ImageURL}{filename}.png";
+                            imageUrls.URLs[$"{skin.invItem.itemname}_{skin.id}"] = $"{configData.ImageURL}{filename}.png";
                         }
                     }
 
@@ -366,8 +357,7 @@ namespace Oxide.Plugins
         public string GetImageURL(string imageName, ulong imageId = 0)
         {
             string identifier = $"{imageName}_{imageId}";
-            string value;
-            if (imageUrls.URLs.TryGetValue(identifier, out value))
+            if (imageUrls.URLs.TryGetValue(identifier, out string value))
                 return value;
             return string.Empty;
         }
@@ -376,20 +366,19 @@ namespace Oxide.Plugins
         public string GetImage(string imageName, ulong imageId = 0, bool returnUrl = false)
         {
             string identifier = $"{imageName}_{imageId}";
-            string value;
-            if (imageIdentifiers.imageIds.TryGetValue(identifier, out value))
-                return value;
-            else
-            {                
-                if (imageUrls.URLs.TryGetValue(identifier, out value))
-                {
-                    AddImage(value, imageName, imageId);
-                    return imageIdentifiers.imageIds["LOADING_0"];
-                }
-            }
 
-            if (returnUrl && !string.IsNullOrEmpty(value))
+            if (imageIdentifiers.imageIds.TryGetValue(identifier, out string value))
                 return value;
+            
+            if (imageUrls.URLs.TryGetValue(identifier, out value))
+            {
+                AddImage(value, imageName, imageId);
+
+                if (returnUrl)
+                    return value;
+                
+                return imageIdentifiers.imageIds["LOADING_0"];
+            }
 
             return imageIdentifiers.imageIds["NONE_0"];
         }
@@ -415,8 +404,7 @@ namespace Oxide.Plugins
         [HookMethod("GetSkinInfo")]
         public Dictionary<string, object> GetSkinInfo(string name, ulong id)
         {
-            Dictionary<string, object> skinInfo;
-            if (skinInformation.skinData.TryGetValue($"{name}_{id}", out skinInfo))
+            if (skinInformation.skinData.TryGetValue($"{name}_{id}", out Dictionary<string, object> skinInfo))
                 return skinInfo;
             return null;
         }
@@ -425,9 +413,8 @@ namespace Oxide.Plugins
         public bool HasImage(string imageName, ulong imageId)
         {
             string key = $"{imageName}_{imageId}";
-            string value;
 
-            if (imageIdentifiers.imageIds.TryGetValue(key, out value) && IsInStorage(uint.Parse(value)))            
+            if (imageIdentifiers.imageIds.TryGetValue(key, out string value) && IsInStorage(uint.Parse(value)))            
                 return true;            
 
             return false;
@@ -456,8 +443,7 @@ namespace Oxide.Plugins
             }
             else
             {
-                if (callback != null)
-                    callback.Invoke();
+                callback?.Invoke();
             }
         }
 
@@ -482,8 +468,7 @@ namespace Oxide.Plugins
             }
             else
             {
-                if (callback != null)
-                    callback.Invoke();
+                callback?.Invoke();
             }
         }
 
@@ -505,8 +490,7 @@ namespace Oxide.Plugins
             }
             else
             {
-                if (callback != null)
-                    callback.Invoke();
+                callback?.Invoke();
             }
         }
 
@@ -547,8 +531,7 @@ namespace Oxide.Plugins
             }
             else
             {
-                if (callback != null)
-                    callback.Invoke();
+                callback?.Invoke();
             }
         }
 
@@ -590,7 +573,6 @@ namespace Oxide.Plugins
             foreach (InventoryDef item in Steamworks.SteamInventory.Definitions)
             {
                 string shortname = item.GetProperty("itemshortname");
-                ulong workshopid;
 
                 if (item == null || string.IsNullOrEmpty(shortname))
                     continue;
@@ -601,7 +583,7 @@ namespace Oxide.Plugins
                 if (item.Id < 100)
                     continue;
 
-                if (!ulong.TryParse(item.GetProperty("workshopid"), out workshopid))
+                if (!ulong.TryParse(item.GetProperty("workshopid"), out ulong workshopid))
                     continue;
 
                 if (HasImage(shortname, workshopid))
@@ -707,8 +689,6 @@ namespace Oxide.Plugins
         {
             PrintWarning($"Processing approved skins; Page {page + 1}/{totalPages + 1}");
 
-            Dictionary<string, Dictionary<ulong, string>> loadOrder = new Dictionary<string, Dictionary<ulong, string>>();
-
             foreach (PublishedFileDetails item in items)
             {
                 if (!IsValid(item))
@@ -783,7 +763,7 @@ namespace Oxide.Plugins
                 webrequest.Enqueue(STEAM_API_URL, details, (code, response) =>
                 {
                     QueryResponse query = JsonConvert.DeserializeObject<QueryResponse>(response, errorHandling);
-                    if (query == null || query.response == null || query.response.publishedfiledetails.Length == 0)
+                    if (query?.response == null || query.response.publishedfiledetails.Length == 0)
                     {
                         if (code != 200)
                             PrintError($"There was a error querying Steam for workshop item data : Code ({code})");
@@ -800,76 +780,70 @@ namespace Oxide.Plugins
                             }
                             else
                             {
-                                if (callback != null)
-                                    callback.Invoke();
+                                callback?.Invoke();
                             }
                         }
                         return;
                     }
-                    else
+
+                    if (query.response.publishedfiledetails.Length > 0)
                     {
-                        if (query.response.publishedfiledetails.Length > 0)
+                        foreach (PublishedFileDetails item in query.response.publishedfiledetails)
                         {
-                            Dictionary<string, Dictionary<ulong, string>> loadOrder = new Dictionary<string, Dictionary<ulong, string>>();
-
-                            foreach (PublishedFileDetails item in query.response.publishedfiledetails)
+                            if (!string.IsNullOrEmpty(item.preview_url))
                             {
-                                if (!string.IsNullOrEmpty(item.preview_url))
+                                ulong skinId = Convert.ToUInt64(item.publishedfileid);
+
+                                KeyValuePair<string, ulong>? kvp = workshopDownloads.Find(x => x.Value == skinId);
+
+                                if (kvp.HasValue)
                                 {
-                                    ulong skinId = Convert.ToUInt64(item.publishedfileid);
+                                    string identifier = $"{kvp.Value.Key}_{kvp.Value.Value}";
 
-                                    KeyValuePair<string, ulong>? kvp = workshopDownloads.Find(x => x.Value == skinId);
+                                    if (!newLoadOrderURL.ContainsKey(identifier))
+                                        newLoadOrderURL.Add(identifier, item.preview_url);
 
-                                    if (kvp.HasValue)
+                                    if (!imageUrls.URLs.ContainsKey(identifier))
+                                        imageUrls.URLs.Add(identifier, item.preview_url);
+
+                                    skinInformation.skinData[identifier] = new Dictionary<string, object>
                                     {
-                                        string identifier = $"{kvp.Value.Key}_{kvp.Value.Value}";
+                                        {"title", item.title },
+                                        {"votesup",  0 },
+                                        {"votesdown", 0 },
+                                        {"description", item.file_description },
+                                        {"score", 0 },
+                                        {"views", item.views },
+                                        {"created", new DateTime(item.time_created) },
+                                    };
 
-                                        if (!newLoadOrderURL.ContainsKey(identifier))
-                                            newLoadOrderURL.Add(identifier, item.preview_url);
-
-                                        if (!imageUrls.URLs.ContainsKey(identifier))
-                                            imageUrls.URLs.Add(identifier, item.preview_url);
-
-                                        skinInformation.skinData[identifier] = new Dictionary<string, object>
-                                        {
-                                            {"title", item.title },
-                                            {"votesup",  0 },
-                                            {"votesdown", 0 },
-                                            {"description", item.file_description },
-                                            {"score", 0 },
-                                            {"views", item.views },
-                                            {"created", new DateTime(item.time_created) },
-                                        };
-
-                                        requestedSkins.Remove(skinId);
-                                    }
+                                    requestedSkins.Remove(skinId);
                                 }
-                            }
-
-                            SaveUrls();
-                            SaveSkinInfo();
-
-                            if (requestedSkins.Count != 0)
-                            {
-                                Puts($"{requestedSkins.Count} workshop skin ID's for image batch ({title}) are invalid! They may have been removed from the workshop\nIDs: {requestedSkins.ToSentence()}");
                             }
                         }
 
-                        if (page < totalPages)
-                            QueueWorkshopDownload(title, newLoadOrderURL, workshopDownloads, page + 1, callback);
+                        SaveUrls();
+                        SaveSkinInfo();
+
+                        if (requestedSkins.Count != 0)
+                        {
+                            Puts($"{requestedSkins.Count} workshop skin ID's for image batch ({title}) are invalid! They may have been removed from the workshop\nIDs: {requestedSkins.ToSentence()}");
+                        }
+                    }
+
+                    if (page < totalPages)
+                        QueueWorkshopDownload(title, newLoadOrderURL, workshopDownloads, page + 1, callback);
+                    else
+                    {
+                        if (newLoadOrderURL.Count > 0)
+                        {
+                            loadOrders.Enqueue(new LoadOrder(title, newLoadOrderURL, null, false, page < totalPages ? null : callback));
+                            if (!orderPending)
+                                ServerMgr.Instance.StartCoroutine(ProcessLoadOrders());
+                        }
                         else
                         {
-                            if (newLoadOrderURL.Count > 0)
-                            {
-                                loadOrders.Enqueue(new LoadOrder(title, newLoadOrderURL, null, false, page < totalPages ? null : callback));
-                                if (!orderPending)
-                                    ServerMgr.Instance.StartCoroutine(ProcessLoadOrders());
-                            }
-                            else
-                            {
-                                if (callback != null)
-                                    callback.Invoke();
-                            }
+                            callback?.Invoke();
                         }
                     }
                 },
@@ -1052,14 +1026,14 @@ namespace Oxide.Plugins
             {
                 this.loadName = loadName;
                 this.imageList = imageList;
-                this.imageData = null;
+                imageData = null;
                 this.loadSilent = loadSilent;
                 this.callback = callback;
             }
             public LoadOrder(string loadName, Dictionary<string, byte[]> imageData, bool loadSilent = false, Action callback = null)
             {
                 this.loadName = loadName;
-                this.imageList = null;
+                imageList = null;
                 this.imageData = imageData;
                 this.loadSilent = loadSilent;
                 this.callback = callback;
@@ -1099,7 +1073,7 @@ namespace Oxide.Plugins
             public void BeginLoad(string request)
             {
                 this.request = request;
-                nextUpdate = UnityEngine.Time.time + il.configData.UpdateInterval;
+                nextUpdate = Time.time + il.configData.UpdateInterval;
                 listCount = queueList.Count;
                 Next();
             }
@@ -1122,15 +1096,14 @@ namespace Oxide.Plugins
                     request = string.Empty;
                     listCount = 0;
 
-                    if (callback != null)
-                        callback.Invoke();
+                    callback?.Invoke();
 
                     StartCoroutine(il.ProcessLoadOrders());
                     return;
                 }
                 if (il.configData.ShowProgress && listCount > 1)
                 {
-                    float time = UnityEngine.Time.time;
+                    float time = Time.time;
                     if (time > nextUpdate)
                     {
                         int amountDone = listCount - queueList.Count;
@@ -1165,7 +1138,7 @@ namespace Oxide.Plugins
                 {
                     Texture2D texture = new Texture2D(2, 2);
                     texture.LoadImage(www.downloadHandler.data);
-                    if (texture != null)
+                    if (texture)
                     {
                         bool shouldStore = true;
                         byte[] bytes = texture.EncodeToPNG();
@@ -1233,7 +1206,7 @@ namespace Oxide.Plugins
             [JsonProperty(PropertyName = "User Images - Manually define images to be loaded")]
             public Dictionary<string, string> UserImages { get; set; }
 
-            public Oxide.Core.VersionNumber Version { get; set; }
+            public VersionNumber Version { get; set; }
         }
 
         protected override void LoadConfig()
