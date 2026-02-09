@@ -14,7 +14,7 @@ using UnityEngine.Networking;
 
 namespace Oxide.Plugins
 {
-    [Info("Image Library", "Absolut & K1lly0u", "2.0.58")]
+    [Info("Image Library", "Absolut & K1lly0u", "2.0.60")]
     [Description("Plugin API for downloading and managing images")]
     class ImageLibrary : RustPlugin
     {
@@ -73,7 +73,7 @@ namespace Oxide.Plugins
             foreach (BasePlayer player in BasePlayer.activePlayerList)
                 OnPlayerConnected(player);
         }
-
+    
         private void OnPlayerConnected(BasePlayer player) => GetPlayerAvatar(player?.UserIDString);
 
         private void Unload()
@@ -258,7 +258,47 @@ namespace Oxide.Plugins
                     imageUrls.URLs.Add(identifier, $"{configData.ImageURL}{itemDefinition.shortname}.png");
                 else imageUrls.URLs[identifier] = $"{configData.ImageURL}{itemDefinition.shortname}.png";
             }
+            
             SaveUrls();
+
+            LoadInbuiltSkinLookup();
+        }
+
+        private void LoadInbuiltSkinLookup()
+        {
+            const string LOOKUP_TABLE = "https://raw.githubusercontent.com/k1lly0u/Oxide/master/il_inbuilt_skins.json";
+
+            try
+            {
+                Debug.Log("Loading inbuilt skin manifest from GitHub...");
+                webrequest.Enqueue(LOOKUP_TABLE, string.Empty, (int code, string response) =>
+                {
+                    Dictionary<string, string> collection = JsonConvert.DeserializeObject<Dictionary<string, string>>(response);
+
+                    foreach (ItemSkinDirectory.Skin skin in ItemSkinDirectory.Instance.skins)
+                    {
+                        if (skin.invItem == null || string.IsNullOrEmpty(skin.invItem.itemname))
+                            continue;
+
+                        string filename;
+                        if (collection.TryGetValue(skin.name, out filename))
+                        {
+                            string identifier = $"{skin.invItem.itemname}_{skin.id}";
+
+                            if (!imageUrls.URLs.ContainsKey(identifier))
+                                imageUrls.URLs.Add(identifier, $"{configData.ImageURL}{filename}.png");
+                            else imageUrls.URLs[identifier] = $"{configData.ImageURL}{filename}.png";
+                        }
+                    }
+
+                    Debug.Log("Skin manifest imported successfully");
+                    SaveUrls();
+                }, this);
+            }
+            catch
+            {
+                Debug.LogError("Failed to download inbuilt skin manifest from GitHub. Unable to gather inbuilt skin list");
+            }
         }
 
         private readonly Dictionary<string, string> workshopNameToShortname = new Dictionary<string, string>
