@@ -15,7 +15,7 @@ using UnityEngine.Networking;
 
 namespace Oxide.Plugins
 {
-    [Info("Image Library", "Absolut & K1lly0u", "2.0.50")]
+    [Info("Image Library", "Absolut & K1lly0u", "2.0.51")]
     [Description("Plugin API for downloading and managing images")]
     class ImageLibrary : RustPlugin
     {
@@ -239,34 +239,38 @@ namespace Oxide.Plugins
 
         private readonly Dictionary<string, string> workshopNameToShortname = new Dictionary<string, string>
         {
-            {"ak47", "rifle.ak" },
-            {"balaclava", "mask.balaclava" },
-            {"bandana", "mask.bandana" },
-            {"bearrug", "rug.bear" },
-            {"beenie", "hat.beenie" },
-            {"boltrifle", "rifle.bolt" },
-            {"boonie", "hat.boonie" },
-            {"buckethat", "bucket.helmet" },
-            {"burlapgloves", "burlap.gloves" },
-            {"burlappants", "burlap.trousers" },
-            {"cap", "hat.cap" },
-            {"collaredshirt", "shirt.collared" },
-            {"deerskullmask", "deer.skull.mask" },
-            {"hideshirt", "attire.hide.vest" },
-            {"hideshoes", "attire.hide.boots" },
             {"longtshirt", "tshirt.long" },
-            {"lr300", "rifle.lr300" },
-            {"minerhat", "hat.miner" },
-            {"mp5", "smg.mp5" },
+            {"cap", "hat.cap" },
+            {"beenie", "hat.beenie" },
+            {"boonie", "hat.boonie" },
+            {"balaclava", "mask.balaclava" },
             {"pipeshotgun", "shotgun.waterpipe" },
-            {"roadsignpants", "roadsign.kilt" },
-            {"roadsignvest", "roadsign.jacket" },
-            {"semiautopistol", "pistol.semiauto" },
-            {"snowjacket", "jacket.snow" },
-            {"sword", "salvaged.sword" },
-            {"vagabondjacket", "jacket" },
             {"woodstorage", "box.wooden" },
-            {"workboots", "shoes.boots" }
+            {"ak47", "rifle.ak" },
+            {"bearrug", "rug.bear" },
+            {"boltrifle", "rifle.bolt" },
+            {"bandana", "mask.bandana" },
+            {"hideshirt", "attire.hide.vest" },
+            {"snowjacket", "jacket.snow" },
+            {"buckethat", "bucket.helmet" },
+            {"semiautopistol", "pistol.semiauto" },
+            {"burlapgloves", "burlap.gloves" },
+            {"roadsignvest", "roadsign.jacket" },
+            {"roadsignpants", "roadsign.kilt" },
+            {"burlappants", "burlap.trousers" },
+            {"collaredshirt", "shirt.collared" },
+            {"mp5", "smg.mp5" },
+            {"sword", "salvaged.sword" },
+            {"workboots", "shoes.boots" },
+            {"vagabondjacket", "jacket" },
+            {"hideshoes", "attire.hide.boots" },
+            {"deerskullmask", "deer.skull.mask" },
+            {"minerhat", "hat.miner" },
+            {"lr300", "rifle.lr300" },
+            {"lr300.item", "rifle.lr300" },
+            {"burlap.gloves", "burlap.gloves.new"},
+            {"leather.gloves", "burlap.gloves"},
+            {"python", "pistol.python" }
         };
        
         #endregion Workshop Names and Image URLs
