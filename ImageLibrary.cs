@@ -14,7 +14,7 @@ using UnityEngine.Networking;
 
 namespace Oxide.Plugins
 {
-    [Info("Image Library", "Absolut & K1lly0u", "2.0.64")]
+    [Info("Image Library", "Absolut & K1lly0u", "2.0.65")]
     [Description("Plugin API for downloading and managing images")]
     class ImageLibrary : RustPlugin
     {
@@ -557,11 +557,35 @@ namespace Oxide.Plugins
             if (array == null)
                 return;
 
-            CommunityEntity.ServerInstance.ClientRPCEx<uint, uint, byte[]>(new Network.SendInfo(player.net.connection)
+            /*CommunityEntity.ServerInstance.ClientRPCEx<uint, uint, byte[]>(new Network.SendInfo(player.net.connection)
             {
                 channel = 2,
                 method = Network.SendMethod.Reliable
-            }, null, "CL_ReceiveFilePng", crc, (uint)array.Length, array);
+            }, null, "CL_ReceiveFilePng", crc, (uint)array.Length, array);*/
+            
+            ClientRPC(RpcTarget.SendInfo("CL_ReceiveFilePng", new Network.SendInfo(player.net.connection){
+                channel = 2,
+                method = Network.SendMethod.Reliable
+            }), crc, (uint)array.Length, array);
+        }
+
+        private void ClientRPC<T1, T2, T3>(RpcTarget target, T1 arg1, T2 arg2, T3 arg3)
+        {
+            if (!Network.Net.sv.IsConnected())
+            {
+                return;
+            }
+            if (CommunityEntity.ServerInstance.net == null)
+            {
+                return;
+            }
+            CommunityEntity.ServerInstance.GetRpcTargetNetworkGroup(ref target);
+            Network.NetWrite netWrite = CommunityEntity.ServerInstance.ClientRPCStart(target.Function);
+            CommunityEntity.ServerInstance.ClientRPCWrite<T1>(netWrite, arg1);
+            CommunityEntity.ServerInstance.ClientRPCWrite<T2>(netWrite, arg2);
+            CommunityEntity.ServerInstance.ClientRPCWrite<T3>(netWrite, arg3);
+            CommunityEntity.ServerInstance.ClientRPCSend(netWrite, target.Connections);
+            CommunityEntity.ServerInstance.FreeRPCTarget(target);
         }
         #endregion API
 
