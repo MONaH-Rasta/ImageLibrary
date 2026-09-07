@@ -14,7 +14,7 @@ using UnityEngine.Networking;
 
 namespace Oxide.Plugins
 {
-    [Info("Image Library", "Absolut & K1lly0u", "2.0.66")]
+    [Info("Image Library", "Absolut & K1lly0u", "2.0.67")]
     [Description("Plugin API for downloading and managing images")]
     class ImageLibrary : RustPlugin
     {
@@ -1263,7 +1263,7 @@ namespace Oxide.Plugins
                 SteamAPIKey = string.Empty,
                 StoreAvatars = false,
                 UpdateInterval = 20,
-                ImageURL = "https://www.rustedit.io/images/imagelibrary/",
+                ImageURL = "https://cdn.rusthelp.com/images/256/",
                 UserImages = new Dictionary<string, string>(),
                 Version = Version
             };
@@ -1285,6 +1285,12 @@ namespace Oxide.Plugins
 
             if (configData.Version < new VersionNumber(2, 0, 55))
                 configData.ImageURL = baseConfig.ImageURL;
+            
+            if (configData.Version < new VersionNumber(2, 0, 67))
+            {
+                if (configData.ImageURL.Contains("rustedit"))
+                    configData.ImageURL = baseConfig.ImageURL;
+            }
 
             configData.Version = Version;
             PrintWarning("Config update completed!");
