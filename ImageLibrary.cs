@@ -14,7 +14,7 @@ using UnityEngine.Networking;
 
 namespace Oxide.Plugins
 {
-    [Info("Image Library", "Absolut & K1lly0u", "2.0.67")]
+    [Info("Image Library", "Absolut & k1lly0u", "2.0.68")]
     [Description("Plugin API for downloading and managing images")]
     class ImageLibrary : RustPlugin
     {
@@ -177,6 +177,15 @@ namespace Oxide.Plugins
                 {
                     RefreshImagery();
                 }
+                else if (imageIdentifiers.lastCEID != 0 && FileStorage.server.HasFiles(new NetworkableId(imageIdentifiers.lastCEID)))
+                {
+                    // The images are still in the current file database under the old CommunityEntity ID. Move them to the new ID
+                    FileStorage.server.Reassign(new NetworkableId(imageIdentifiers.lastCEID), CommunityEntity.ServerInstance.net.ID);
+                    PrintWarning("The CommunityEntity instance ID has changed. Stored images have been moved to the new ID");
+
+                    imageIdentifiers.lastCEID = CommunityEntity.ServerInstance.net.ID.Value;
+                    SaveData();
+                }
                 else
                 {
                     PrintWarning("The CommunityEntity instance ID has changed! Due to the way CUI works in Rust all previously stored images must be removed and re-stored using the new ID as reference so clients can find the images. These images will be added to a new load order. Interupting this process will result in being required to re-download these images from the web");
@@ -192,8 +201,39 @@ namespace Oxide.Plugins
             try
             {
                 Facepunch.Sqlite.Database db = new Facepunch.Sqlite.Database();
-                db.Open(string.Concat(ConVar.Server.rootFolder, "/", "sv.files.", Rust.Protocol.save - 1, ".db"));                
-                if (db.TableExists("data"))
+                db.Open(string.Concat(ConVar.Server.filesStorageFolder, "/", "sv.files.", Rust.Protocol.save - 1, ".db"));
+
+                // New file database format. Files are keyed by entity and part, so look them up by CRC
+                if (db.TableExists("files"))
+                {
+                    Dictionary<string, byte[]> oldFiles = new Dictionary<string, byte[]>();
+                    int failed = 0;
+
+                    for (int i = imageIdentifiers.imageIds.Count - 1; i >= 0; i--)
+                    {
+                        KeyValuePair<string, string> image = imageIdentifiers.imageIds.ElementAt(i);
+
+                        if (!uint.TryParse(image.Value, out uint imageId))
+                            continue;
+
+                        byte[] bytes = db.Query<byte[], uint, int>("SELECT data FROM files WHERE crc = ? AND filetype = ? LIMIT 1", imageId, (int)FileStorage.Type.png);
+                        if (bytes != null)
+                            oldFiles.Add(image.Key, bytes);
+                        else
+                        {
+                            failed++;
+                            imageIdentifiers.imageIds.Remove(image.Key);
+                        }
+                    }
+
+                    if (oldFiles.Count > 0)
+                    {
+                        loadOrders.Enqueue(new LoadOrder("Image restoration from previous database", oldFiles));
+                        PrintWarning($"{imageIdentifiers.imageIds.Count - failed} images queued for restoration from previous image db, {failed} images failed");
+                    }
+                }
+                // Old file database format
+                else if (db.TableExists("data"))
                 {
                     Dictionary<string, byte[]> oldFiles = new Dictionary<string, byte[]>();
                     int failed = 0;
@@ -274,7 +314,7 @@ namespace Oxide.Plugins
 
                     foreach (ItemSkinDirectory.Skin skin in ItemSkinDirectory.Instance.skins)
                     {
-                        if (skin.invItem == null || string.IsNullOrEmpty(skin.invItem.itemname))
+                        if (!skin.invItem || string.IsNullOrEmpty(skin.invItem.itemname))
                             continue;
 
                         if (collection.TryGetValue(skin.name, out string filename))
@@ -419,8 +459,8 @@ namespace Oxide.Plugins
 
             return false;
         }
-
-        public bool IsInStorage(uint crc) => FileStorage.server.Get(crc, FileStorage.Type.png, CommunityEntity.ServerInstance.net.ID) != null;
+        
+        public bool IsInStorage(uint crc) => crc != 0 && FileStorage.server.GetCrc(CommunityEntity.ServerInstance.net.ID, crc) == crc;
 
         [HookMethod("IsReady")]
         public bool IsReady() => loadOrders.Count == 0 && !orderPending;
@@ -542,34 +582,28 @@ namespace Oxide.Plugins
                 return;
 
             uint crc = uint.Parse(GetImage(imageName, imageId));
-            FileStorage.server.Remove(crc, FileStorage.Type.png, CommunityEntity.ServerInstance.net.ID);
+            FileStorage.server.Remove(CommunityEntity.ServerInstance.net.ID, crc);
         }
 
         [HookMethod("SendImage")]
         public void SendImage(BasePlayer player, string imageName, ulong imageId = 0)
         {
-            if (!HasImage(imageName, imageId) || player?.net?.connection == null)
+            if (!HasImage(imageName, imageId) || !player || player.net?.connection == null)
                 return;
 
             uint crc = uint.Parse(GetImage(imageName, imageId));
-            byte[] array = FileStorage.server.Get(crc, FileStorage.Type.png, CommunityEntity.ServerInstance.net.ID);
+            byte[] array = FileStorage.server.Get(CommunityEntity.ServerInstance.net.ID, crc, crc);
 
             if (array == null)
                 return;
 
-            /*CommunityEntity.ServerInstance.ClientRPCEx<uint, uint, byte[]>(new Network.SendInfo(player.net.connection)
-            {
+            ClientRPC(RpcTarget.SendInfo("CL_ReceiveFile", new Network.SendInfo(player.net.connection){
                 channel = 2,
                 method = Network.SendMethod.Reliable
-            }, null, "CL_ReceiveFilePng", crc, (uint)array.Length, array);*/
-            
-            ClientRPC(RpcTarget.SendInfo("CL_ReceiveFilePng", new Network.SendInfo(player.net.connection){
-                channel = 2,
-                method = Network.SendMethod.Reliable
-            }), crc, (uint)array.Length, array);
+            }), (ulong)crc, crc, (uint)array.Length, array);
         }
 
-        private void ClientRPC<T1, T2, T3>(RpcTarget target, T1 arg1, T2 arg2, T3 arg3)
+        private void ClientRPC<T1, T2, T3, T4>(RpcTarget target, T1 arg1, T2 arg2, T3 arg3, T4 arg4)
         {
             if (!Network.Net.sv.IsConnected())
             {
@@ -584,6 +618,7 @@ namespace Oxide.Plugins
             CommunityEntity.ServerInstance.ClientRPCWrite<T1>(netWrite, arg1);
             CommunityEntity.ServerInstance.ClientRPCWrite<T2>(netWrite, arg2);
             CommunityEntity.ServerInstance.ClientRPCWrite<T3>(netWrite, arg3);
+            CommunityEntity.ServerInstance.ClientRPCWrite<T4>(netWrite, arg4);
             CommunityEntity.ServerInstance.ClientRPCSend(netWrite, target.Connections);
             CommunityEntity.ServerInstance.FreeRPCTarget(target);
         }
@@ -1194,7 +1229,7 @@ namespace Oxide.Plugins
             private void StoreByteArray(byte[] bytes, string name)
             {
                 if (bytes != null)
-                    il.imageIdentifiers.imageIds[name] = FileStorage.server.Store(bytes, FileStorage.Type.png, CommunityEntity.ServerInstance.net.ID).ToString();
+                    il.imageIdentifiers.imageIds[name] = FileStorage.server.StoreByCrc(CommunityEntity.ServerInstance.net.ID, FileStorage.Type.png, bytes).ToString();
                 isLoading = false;
                 Next();
             }
